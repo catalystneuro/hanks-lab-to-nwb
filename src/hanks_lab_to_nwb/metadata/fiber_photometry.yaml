@@ -1,0 +1,268 @@
+# Hanks lab Doric FP Console hardware — shared across WM and Bandit tasks.
+#
+# Both tasks use the same Doric FP Console with four lock-in channels:
+#   AOUT01 (420 nm) + AOUT03 (415 nm): isosbestic dLight3.8 control
+#   AOUT02 (490 nm) + AOUT04 (490 nm): dLight3.8 dopamine signal
+# AIN01–04 are four independent photoreceiver channels, one per implant site.
+#
+# What is NOT here (session/subject-specific, generated from fp_data_*.pkl):
+#   OpticalFibers — implant coordinates differ per subject
+#   FiberPhotometryTable — region assignments differ per session
+#   FiberPhotometryResponseSeries — stream names depend on session layout
+#
+# TODO (confirm with Tanner):
+#   - Exact fiber model/part number and NA
+#   - LED power at fiber tip (µW) per channel
+
+Ophys:
+  FiberPhotometry:
+
+    # ── Device models ──────────────────────────────────────────────────────────
+
+    OpticalFiberModels:
+      - name: doric_optical_fiber_model
+        manufacturer: Doric Lenses
+        # model_numer: "" # Doric fiber optic cannula catalog number
+        description: >-
+          400 µm core, flat-cleaved multimode optical fiber with ceramic ferrule,
+          used for dLight3.8 dopamine imaging in striatal and prefrontal regions.
+        numerical_aperture: 0.48
+        core_diameter_in_um: 400.0
+        # ferrule_name: "" # e.g. "ceramic ferrule"
+        # ferrule_model: ""  # ferrule catalog/product ID
+        # ferrule_diameter_in_mm:  # e.g. 2.5
+        # active_length_in_mm:  # e.g. 1.0
+
+    ExcitationSourceModels:
+      - name: doric_415nm_led_model
+        manufacturer: Doric Lenses
+        description: >-
+          415 nm band LED on Doric FP Console, used as the isosbestic excitation
+          wavelength for dLight3.8 (AOUT03 channel; channels 3–4).
+        source_type: LED
+        excitation_mode: one-photon
+        # model_number: ""  # Doric LED catalog number
+        # wavelength_range_in_nm: [456.5, 483.5]  # TODO: get this from LED data sheet, source: https://neuro.doriclenses.com/products/cled
+      - name: doric_420nm_led_model
+        manufacturer: Doric Lenses
+        description: >-
+          420 nm band LED on Doric FP Console, used as the isosbestic excitation
+          wavelength for dLight3.8 (AOUT01 channel; channels 1–2).
+        source_type: LED
+        excitation_mode: one-photon
+        # model_number: ""  # Doric LED catalog number
+        # wavelength_range_in_nm: [456.5, 483.5]  # TODO: get this from LED data sheet, source: https://neuro.doriclenses.com/products/cled
+
+      - name: doric_490nm_led_model
+        manufacturer: Doric Lenses
+        description: >-
+          490 nm band LED on Doric FP Console, used as the ligand excitation
+          wavelength for dLight3.8 dopamine signal (AOUT02 and AOUT04 channels).
+        source_type: LED
+        excitation_mode: one-photon
+        # model_number: ""  # Doric LED catalog number
+        # wavelength_range_in_nm: [456.5, 483.5]  # TODO: get this from LED data sheet, source: https://neuro.doriclenses.com/products/cled
+
+    PhotodetectorModels:
+      - name: doric_photodetector_model
+        manufacturer: Doric Lenses
+        description: >-
+          Doric integrated fiber photometry photoreceiver with transimpedance
+          amplifier. One unit per implant site (AIN01–04 analog input channels).
+        detector_type: Photodiode
+
+    # ── Indicator ──────────────────────────────────────────────────────────────
+
+    FiberPhotometryIndicators:
+      - name: dLight3.8
+        label: dLight3.8
+        manufacturer: Addgene
+        description: >-
+          Genetically encoded GPCR-activation-based fluorescent dopamine indicator
+          dLight3.8. Expressed via AAV9-CAG-dLight3.8. Isosbestic excitation:
+          415/420 nm. Ligand excitation: 490 nm. Emission peak: ~525 nm.
+
+    # ── Excitation source instances ────────────────────────────────────────────
+    # AOUT01 and AOUT03 drive channels 1–2 and 3–4 respectively (isosbestic).
+    # AOUT02 and AOUT04 drive channels 1–2 and 3–4 respectively (signal).
+
+    ExcitationSources:
+      - name: ExcitationSourceAOUT01
+        manufacturer: Doric Lenses
+        description: "AOUT01 channel of Doric FP Console, 420 nm modulated LED"
+        model: doric_420nm_led_model
+
+      - name: ExcitationSourceAOUT02
+        manufacturer: Doric Lenses
+        description: "AOUT02 channel of Doric FP Console, 490 nm modulated LED"
+        model: doric_490nm_led_model
+
+      - name: ExcitationSourceAOUT03
+        manufacturer: Doric Lenses
+        description: "AOUT03 channel of Doric FP Console, 415 nm modulated LED"
+        model: doric_415nm_led_model
+
+      - name: ExcitationSourceAOUT04
+        manufacturer: Doric Lenses
+        description: "AOUT04 channel of Doric FP Console, 490 nm modulated LED"
+        model: doric_490nm_led_model
+
+    # ── Photodetector instances ────────────────────────────────────────────────
+    # AIN01–04 are four independent photoreceiver channels.
+    # Which brain region each AIN measures varies per session/subject —
+    # that mapping is captured in FiberPhotometryTable (patched by convert_session.py).
+
+    Photodetectors:
+      - name: PhotodetectorAIN01
+        manufacturer: Doric Lenses
+        description: "AIN01 analog input channel of Doric FP Console"
+        model: DoricPhotoreceiver
+
+      - name: PhotodetectorAIN02
+        manufacturer: Doric Lenses
+        description: "AIN02 analog input channel of Doric FP Console"
+        model: DoricPhotoreceiver
+
+      - name: PhotodetectorAIN03
+        manufacturer: Doric Lenses
+        description: "AIN03 analog input channel of Doric FP Console"
+        model: DoricPhotoreceiver
+
+      - name: PhotodetectorAIN04
+        manufacturer: Doric Lenses
+        description: "AIN04 analog input channel of Doric FP Console"
+        model: DoricPhotoreceiver
+
+    # ── FiberPhotometryTable ───────────────────────────────────────────────────
+    # Rows are ordered canonically by (AOUT channel, AIN channel).
+    # `location` and `optical_fiber` are placeholders; patched by
+    # _patch_fp_metadata_for_session() in each task's convert_session.py
+    # using the session-specific AIN→region mapping from _SESSION_AIN_TO_REGION.
+    # Row indices here must match fiber_photometry_table_region in the series below.
+
+    FiberPhotometryTable:
+      name: fiber_photometry_table
+      description: >-
+        Metadata for all fiber photometry recording sites and excitation
+        wavelengths in this session.
+      rows:
+        - name: "0"
+          location: TBD        # patched: AIN01 region
+          excitation_wavelength_in_nm: 420.0
+          emission_wavelength_in_nm: 525.0
+          indicator: dLight3.8
+          optical_fiber: TBD   # patched: OpticalFiber_{AIN01 region}
+          excitation_source: ExcitationSourceAOUT01
+          photodetector: PhotodetectorAIN01
+        - name: "1"
+          location: TBD        # patched: AIN02 region
+          excitation_wavelength_in_nm: 420.0
+          emission_wavelength_in_nm: 525.0
+          indicator: dLight3.8
+          optical_fiber: TBD   # patched: OpticalFiber_{AIN02 region}
+          excitation_source: ExcitationSourceAOUT01
+          photodetector: PhotodetectorAIN02
+        - name: "2"
+          location: TBD        # patched: AIN01 region
+          excitation_wavelength_in_nm: 490.0
+          emission_wavelength_in_nm: 525.0
+          indicator: dLight3.8
+          optical_fiber: TBD   # patched: OpticalFiber_{AIN01 region}
+          excitation_source: ExcitationSourceAOUT02
+          photodetector: PhotodetectorAIN01
+        - name: "3"
+          location: TBD        # patched: AIN02 region
+          excitation_wavelength_in_nm: 490.0
+          emission_wavelength_in_nm: 525.0
+          indicator: dLight3.8
+          optical_fiber: TBD   # patched: OpticalFiber_{AIN02 region}
+          excitation_source: ExcitationSourceAOUT02
+          photodetector: PhotodetectorAIN02
+        - name: "4"
+          location: TBD        # patched: AIN03 region
+          excitation_wavelength_in_nm: 415.0
+          emission_wavelength_in_nm: 525.0
+          indicator: dLight3.8
+          optical_fiber: TBD   # patched: OpticalFiber_{AIN03 region}
+          excitation_source: ExcitationSourceAOUT03
+          photodetector: PhotodetectorAIN03
+        - name: "5"
+          location: TBD        # patched: AIN04 region
+          excitation_wavelength_in_nm: 415.0
+          emission_wavelength_in_nm: 525.0
+          indicator: dLight3.8
+          optical_fiber: TBD   # patched: OpticalFiber_{AIN04 region}
+          excitation_source: ExcitationSourceAOUT03
+          photodetector: PhotodetectorAIN04
+        - name: "6"
+          location: TBD        # patched: AIN03 region
+          excitation_wavelength_in_nm: 490.0
+          emission_wavelength_in_nm: 525.0
+          indicator: dLight3.8
+          optical_fiber: TBD   # patched: OpticalFiber_{AIN03 region}
+          excitation_source: ExcitationSourceAOUT04
+          photodetector: PhotodetectorAIN03
+        - name: "7"
+          location: TBD        # patched: AIN04 region
+          excitation_wavelength_in_nm: 490.0
+          emission_wavelength_in_nm: 525.0
+          indicator: dLight3.8
+          optical_fiber: TBD   # patched: OpticalFiber_{AIN04 region}
+          excitation_source: ExcitationSourceAOUT04
+          photodetector: PhotodetectorAIN04
+
+    # ── FiberPhotometryResponseSeries ─────────────────────────────────────────
+    # Named by stream/channel (AOUT×AIN), not by brain region — region info is
+    # in FiberPhotometryTable.  `name` and `description` are patched with the
+    # actual region name by _patch_fp_metadata_for_session() before conversion.
+    # stream_name format: FPConsole_Signals_Series0001_LockIn{AOUT}_{AIN}
+
+    FiberPhotometryResponseSeries:
+      - name: FPResponseSeries_AOUT01_AIN01       # patched → FPResponseSeries_{region}_420nm
+        description: "AOUT01 (420 nm isosbestic) × AIN01"    # patched with region
+        unit: V
+        stream_name: FPConsole_Signals_Series0001_LockInAOUT01_AIN01
+        fiber_photometry_table_region: [0]
+        fiber_photometry_table_region_description: "420 nm isosbestic control"  # patched
+      - name: FPResponseSeries_AOUT01_AIN02
+        description: "AOUT01 (420 nm isosbestic) × AIN02"
+        unit: V
+        stream_name: FPConsole_Signals_Series0001_LockInAOUT01_AIN02
+        fiber_photometry_table_region: [1]
+        fiber_photometry_table_region_description: "490 nm signal channel (raw fluorescence)"  # patched
+      - name: FPResponseSeries_AOUT02_AIN01
+        description: "AOUT02 (490 nm signal) × AIN01"
+        unit: V
+        stream_name: FPConsole_Signals_Series0001_LockInAOUT02_AIN01
+        fiber_photometry_table_region: [2]
+        fiber_photometry_table_region_description: "490 nm signal channel (raw fluorescence)" # patched
+      - name: FPResponseSeries_AOUT02_AIN02
+        description: "AOUT02 (490 nm signal) × AIN02"
+        unit: V
+        stream_name: FPConsole_Signals_Series0001_LockInAOUT02_AIN02
+        fiber_photometry_table_region: [3]
+        fiber_photometry_table_region_description: "415 nm isosbestic control" # patched
+      - name: FPResponseSeries_AOUT03_AIN03
+        description: "AOUT03 (415 nm isosbestic) × AIN03"
+        unit: V
+        stream_name: FPConsole_Signals_Series0001_LockInAOUT03_AIN03
+        fiber_photometry_table_region: [4]
+        fiber_photometry_table_region_description: "415 nm isosbestic control"
+      - name: FPResponseSeries_AOUT03_AIN04
+        description: "AOUT03 (415 nm isosbestic) × AIN04"
+        unit: V
+        stream_name: FPConsole_Signals_Series0001_LockInAOUT03_AIN04
+        fiber_photometry_table_region: [5]
+        fiber_photometry_table_region_description: "490 nm signal channel (raw fluorescence)"
+      - name: FPResponseSeries_AOUT04_AIN03
+        description: "AOUT04 (490 nm signal) × AIN03"
+        unit: V
+        stream_name: FPConsole_Signals_Series0001_LockInAOUT04_AIN03
+        fiber_photometry_table_region: [6]
+        fiber_photometry_table_region_description: "490 nm signal channel (raw fluorescence)"
+      - name: FPResponseSeries_AOUT04_AIN04
+        description: "AOUT04 (490 nm signal) × AIN04"
+        unit: V
+        stream_name: FPConsole_Signals_Series0001_LockInAOUT04_AIN04
+        fiber_photometry_table_region: [7]
+        fiber_photometry_table_region_description: "490 nm signal channel (raw fluorescence)"
