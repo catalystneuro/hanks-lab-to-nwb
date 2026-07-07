@@ -1,0 +1,45 @@
+NWBFile:
+  session_description: >
+    This session contains fiber photometry and behavioral data from a rat
+    performing a two-arm bandit task (ClassicRLTasks). On each trial, the rat
+    initiates at the center port and chooses either the left or right reward port.
+    Reward probabilities are fixed within a block and switch across blocks,
+    requiring the animal to track reward history and update port preferences.
+    Behavioral events are controlled and recorded by Bpod. Fluorescence signals
+    are acquired simultaneously from up to four brain regions using a Doric system
+    with dLight 3.8 (dopamine indicator) at isosbestic and ligand excitation
+    wavelengths.
+  experiment_description: >
+    This experiment contains simultaneous fiber photometry and behavioral data
+    from rats performing decision-making and working memory tasks, collected in
+    the Hanks lab to study the neural basis of these behaviors. Rats are implanted
+    with optical fibers targeting up to four striatal and prefrontal regions
+    (nucleus accumbens, dorsomedial striatum, dorsolateral striatum, tail of
+    striatum, and prelimbic cortex) and injected with an AAV expressing the
+    dopamine indicator dLight 3.8. Behavioral control and event logging are
+    handled by Bpod, with trial data written to a SQL database. Fluorescence
+    signals are acquired with a Doric system using lock-in detection at isosbestic
+    and ligand excitation wavelengths.
+  keywords:
+    - dopamine
+    - fiber photometry
+    - reinforcement learning
+    - decision making
+    - bandit task
+    - striatum
+    - rat
+    - dLight
+  institution: University of California, Davis
+  lab: Hanks
+  experimenter:
+    - Last, First  # TODO: update placeholder
+  related_publications: []  # TODO: add DOI once published, format "doi:10.xxxx/xxxxx"
+
+Subject:
+  species: Rattus norvegicus
+  sex: U  # TODO: update placeholder
+  age: P3Y # TODO: update placeholder
+  strain: Long-Evans  # TODO: update placeholder
+  description: >
+    Rat implanted with optical fibers targeting striatal and prefrontal regions,
+    injected with AAV expressing the dopamine indicator dLight 3.8.

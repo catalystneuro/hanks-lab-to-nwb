@@ -6,26 +6,26 @@ readme = "README.md"
 authors = [{ name = "CatalystNeuro", email = "ben.dichter@catalystneuro.com" }]
 maintainers = [{ name = "CatalystNeuro", email = "ben.dichter@catalystneuro.com" }]
 license = { file = "LICENSE" }
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13"
 ]
 
 dependencies = [
-  "neuroconv",
+  "neuroconv @ git+https://github.com/catalystneuro/neuroconv.git@main",
   "nwbinspector",
+  "ndx-fiber-photometry",
+  "ndx-ophys-devices",
+  "ndx-structured-behavior",
+  "opencv-python-headless",
+  "matplotlib",
 ]
 
 [project.urls]
 Repository="https://github.com/catalystneuro/hanks-lab-to-nwb"
 
-[project.optional-dependencies]
-hanks_task = [
-  "neuroconv==0.7.0"   # Pinned dependencies to specific versions
-]
 
 [dependency-groups]
 dev = [
