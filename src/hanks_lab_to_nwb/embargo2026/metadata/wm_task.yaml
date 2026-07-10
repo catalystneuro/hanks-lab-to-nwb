@@ -39,7 +39,6 @@ NWBFile:
 
 Subject:
   species: Rattus norvegicus
-  # sex, date_of_birth, weight, strain are set per-subject in convert_session.py
   description: >
     Rat implanted with optical fibers targeting striatal and prefrontal regions,
     injected with AAV9-CAG-dLight3.8 (UNC Vector Core) for dopamine imaging.

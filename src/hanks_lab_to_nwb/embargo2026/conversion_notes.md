@@ -1,11 +1,24 @@
-# WM Task (ToneCatDelayResp) — Conversion Notes
+# Hanks Lab — Conversion Notes
+
+Two behavioral tasks are covered in this conversion, both using the same subjects,
+hardware, and FP pipeline. Only the behavioral protocol and session descriptions differ.
+
+---
 
 ## Experiment Overview
 
-Rats hear 1–2 auditory tones during a stimulus window and must remember the
-relevant tone category to poke the correct side port after a delay.
-Behavioral events are controlled by Bpod. Dopamine is recorded simultaneously
-from up to 4 brain regions with dLight 3.8 via Doric fiber photometry.
+Rats are implanted with optical fibers targeting up to four striatal and prefrontal
+regions and injected with AAV9-CAG-dLight3.8 (UNC Vector Core) for dopamine imaging.
+Two protocols are collected per subject:
+
+- **Bandit task (ClassicRLTasks)**: Rat chooses left or right reward port. Reward
+  probabilities are fixed within a block and switch across blocks, requiring tracking
+  of reward history. Behavioral events controlled by Bpod.
+- **WM task (ToneCatDelayResp)**: Rat hears 1 auditory tone during a stimulus window
+  and must remember the tone category to poke the correct side port after a delay.
+  Behavioral events controlled by Bpod.
+
+Dopamine signals recorded simultaneously from up to 4 brain regions via Doric FP system.
 
 ---
 
@@ -14,9 +27,9 @@ from up to 4 brain regions with dLight 3.8 via Doric fiber photometry.
 | Stream | Format | File pattern | Interface |
 |--------|--------|-------------|-----------|
 | FP raw (LockIn) | Doric HDF5 `.doric` | `Session_{sessid}.doric` | `DoricFiberPhotometryInterface` |
-| FP processed (dFF) | Python pickle `.pkl` | `fp_data_{sessid}.pkl` | `FPProcessedInterface` |
-| Behavioral data | Python pickle `.pkl` | `sess_data_{sessid}.pkl` | `WMBehaviorInterface` |
-| Video | `.mp4` | `mov_{sessid}.mp4` | `ExternalVideoInterface` |
+| FP processed (dFF) | Python pickle `.pkl` | `fp_data_{sessid}.pkl` | `ProcessedFiberPhotometryInterface` (follow-up PR) |
+| Behavioral data | Python pickle `.pkl` | `sess_data_{sessid}.pkl` | `BanditBehaviorInterface` / `WMBehaviorInterface` (follow-up PR) |
+| Video | `.mp4` | `mov_{sessid}.mp4` | `ExternalVideoInterface` (follow-up PR) |
 
 ---
 
@@ -33,7 +46,7 @@ DataAcquisition/FPConsole/Signals/Series0001/
   LockInAOUT04/AIN03  Username='Ch3_490'                       — Ch3 @ 490 nm
   LockInAOUT04/AIN04  Username='Ch4_490'                       — Ch4 @ 490 nm
   DigitalIO/DIO01                                               — Bpod TTL trial sync
-  DigitalIO/DIO04                                               — unknown (TBD)
+  DigitalIO/DIO04                                               — camera trigger
   AnalogIn/AIN01–04                                            — raw photodetector voltages
 ```
 
@@ -47,8 +60,8 @@ DataAcquisition/FPConsole/Signals/Series0001/
 ```python
 {
   'fp_data': {
-    'trial_start_ts': (166,),  # Doric-clock timestamps of trial starts
-    'time': (888457,),         # decimated timestamps (200 Hz / 5 ms)
+    'trial_start_ts': (n_trials+1,),  # Doric-clock timestamps of trial starts
+    'time': (n_samples,),             # decimated timestamps (200 Hz / 5 ms)
     'dec_info': {'decimation': 30, 'initial_dt': 0.000166, 'decimated_dt': 0.00498},
     'raw_signals':       {region: {wavelength_str: array}},
     'processed_signals': {region: {'raw_lig', 'raw_iso', 'filtered_lig', 'filtered_iso',
@@ -63,16 +76,17 @@ DataAcquisition/FPConsole/Signals/Series0001/
 
 ---
 
-## WM Behavioral Data (sess_data_{sessid}.pkl)
+## Behavioral Data (sess_data_{sessid}.pkl)
 
-pandas DataFrame, one row per trial. Protocol: `ToneCatDelayResp`.
+pandas DataFrame, one row per trial.
 
-### Common columns
+### Common columns (both tasks)
 
 | Column | Type | Description |
 |--------|------|-------------|
 | `sessid` | int | Session ID |
 | `subjid` | int | Subject ID |
+| `protocol` | str | Protocol name (`ClassicRLTasks` or `ToneCatDelayResp`) |
 | `sessiondate` | date | Session date |
 | `starttime` | Timedelta | Time-of-day session start (Bpod) |
 | `trial` | int | Trial number (1-indexed) |
@@ -89,6 +103,24 @@ pandas DataFrame, one row per trial. Protocol: `ToneCatDelayResp`.
 | `reward_time` | float | Reward delivery (trial-relative s) |
 | `RT` | float | Reaction time (s) |
 | `cport_on_time` | float | Center port LED on (trial-relative s) |
+
+### Bandit-specific columns
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `block_num` | int | Block number within session |
+| `block_trial` | int | Trial index within current block |
+| `block_prob` | float | Reward probability of the chosen port for this block |
+| `p_reward_left` | float | Reward probability of left port this trial |
+| `p_reward_right` | float | Reward probability of right port this trial |
+| `high_port` | str | Port with higher reward probability (`'left'` or `'right'`) |
+| `high_side` | str | Same as high_port (alternative column name) |
+| `forced_choice` | bool | Forced choice trial (only one port active) |
+| `viol` | bool | Protocol violation (e.g. premature withdrawal) |
+| `epoch_schedule` | str | Volatility epoch schedule name |
+| `epoch_label` | str | Volatility epoch label |
+| `trial_length` | float | Total trial duration (s) |
+| `chose_high` | bool | Animal chose the high-probability port |
 
 ### WM-specific columns
 
@@ -111,20 +143,29 @@ pandas DataFrame, one row per trial. Protocol: `ToneCatDelayResp`.
 
 ### Timing note
 
-All event times (`cpoke_in_time`, `stim_start_time`, etc.) are **trial-relative seconds**
-(Bpod resets to 0 at each trial start). `abs_tone_start_times` despite the "abs" prefix
-means absolute within the trial, not session-absolute.
+All event times are **trial-relative seconds** (Bpod resets to 0 at each trial start).
 
 ---
 
 ## Subjects
 
-| subject_id | Species | Virus | Regions | WM sessions |
-|------------|---------|-------|---------|-------------|
-| 400 | Rattus norvegicus | AAV9 dLight 3.8 CAG | PL, NAc, DMS, DLS | 119247 |
-| 238 | Rattus norvegicus | AAV9 dLight 3.8 CAG | NAc, DMS, DLS, TS | 124770 |
+| subject_id | Sex | Strain | DOB | Weight | Species | Virus | Regions |
+|------------|-----|--------|-----|--------|---------|-------|---------|
+| 400 | M | Long Evans | 2024-03-19 | 530 g | Rattus norvegicus | AAV9-CAG-dLight3.8 (UNC) | PL, NAc, DMS, DLS |
+| 238 | M | Long Evans | 2025-05-?? ⚠️ | 540 g | Rattus norvegicus | AAV9-CAG-dLight3.8 (UNC) | NAc, DMS, DLS, TS |
 
-Sex, strain, and date of birth pending from Tanner (see open_questions.md).
+⚠️ Subject 238 DOB: lab reported `2025-05-0` — using `2025-05-01` as placeholder until confirmed.
+
+**Experimenter**: Stevenson, Tanner
+
+### Sessions (from Subj Info.txt)
+
+| session_id | subject_id | Task | AIN→region mapping |
+|------------|------------|------|--------------------|
+| 119247 | 400 | WM | 1→DLS, 2→PL, 3→DMS, 4→NAc |
+| 119974 | 400 | Bandit | 1→NAc, 2→PL, 3→DLS, 4→DMS |
+| 124770 | 238 | WM | 1→DMS, 2→DLS, 3→TS, 4→NAc |
+| 124949 | 238 | Bandit | 1→NAc, 2→DMS, 3→TS, 4→DLS |
 
 ### Implant coordinates (from fp_data_*.pkl → implant_info, mm re bregma)
 
@@ -133,6 +174,26 @@ DMS right (+1.1, -2.1, -3.6) · DLS left (+0.6, +3.8, -3.8)
 
 **Subject 238**: NAc right (+1.6, -1.6, -7.0) · DMS left (+1.1, +2.0, -3.6) ·
 DLS right (+0.4, -3.8, -3.8) · TS left (-1.0, +3.8, -3.8)
+
+---
+
+## Fiber Photometry Hardware
+
+- **System**: Doric Fiber Photometry Console, 4-channel LED driver
+  - Channels 1–2: 2× iFMC5 minicube (E 470-493 nm / IE 420-435 nm / F 500-550 nm)
+  - Channels 3–4: 2× iFMC4 minicube (E 460-490 nm / IE 410-420 nm / F 500-550 nm)
+- **Excitation sources**:
+  - Isosbestic: Doric Connecterized 415 nm LED, FWHM 13 nm
+    - AOUT01 paired with 420-435 nm filter → drives AIN01-02
+    - AOUT03 paired with 410-420 nm filter → drives AIN03-04 (labeled "Ch3_420" in software — display only)
+  - Signal: Doric Connecterized 490 nm LED, FWHM 26 nm
+- **Optical fibers**: RWD R-FOC-BL400C-50NA, flat 400 µm core, NA 0.5, 1.25 mm ceramic ferrule
+- **Photodetector**: Doric iFMC integrated Si photodiode, gain 7.6 V/nW, sensitivity 350-1000 nm
+  - 960 nm = bare Si chip peak; detected wavelength through emission filter is ~525 nm
+- **Emission filter**: 500-550 nm bandpass (all 4 channels)
+- **Excitation filters**: ch 1-2 signal 470-493 nm / iso 420-435 nm; ch 3-4 signal 460-490 nm / iso 410-420 nm
+- **Indicator**: AAV9-CAG-dLight3.8, UNC Vector Core; excitation ~490 nm, isosbestic ~420 nm, emission ~530 nm
+- **Atlas**: Paxinos & Watson rat brain, 7th edition, bregma reference
 
 ---
 
@@ -154,7 +215,6 @@ No cross-system synchronization is needed.
 
 ```
 session_start_time = Doric file Created attribute (America/Los_Angeles tz)
-                     (fallback: sessiondate + starttime from sess_data pkl)
 
 FP NWB timestamp   = doric_time          (no offset; Doric IS the reference clock)
 Behavioral event   = trial_start_ts[trial_i] + bpod_trial_relative_time
@@ -169,15 +229,15 @@ Pre-trial baseline (~12–15 s) has positive timestamps; first trial at `trial_s
 ### FP data → ndx-fiber-photometry
 - `FiberPhotometryTable`: one row per (region × wavelength) channel
 - `FiberPhotometryResponseSeries` in `acquisition`: raw LockIn signals (from .doric)
-- `FiberPhotometryResponseSeries` in `processing["ophys"]`: dFF signals (from pkl)
+- `FiberPhotometryResponseSeries` in `processing["ophys"]`: dFF signals (from pkl) — follow-up PR
 - `OpticalFiber` with `FiberInsertion` per implanted region (AP/ML/DV from pkl)
 
-### Behavior → trials table
+### Behavior → trials table (follow-up PR)
 - `nwbfile.trials`: one row per trial, all scalar event times and outcomes
-- Tone stimulus parameters as VectorData columns
-- `TimeIntervals` for Bpod states if needed
+- Bandit: block structure, reward probabilities, epoch columns
+- WM: tone timing, tone category, delay, correct port columns
 
-### Video → external reference
+### Video → external reference (follow-up PR)
 - `ImageSeries(external_file=[...])` pointing to `mov_{sessid}.mp4`
 
 ---
@@ -186,8 +246,8 @@ Pre-trial baseline (~12–15 s) has positive timestamps; first trial at `trial_s
 
 - [x] Phase 1: Experiment discovery
 - [x] Phase 2: Data inspection
-- [ ] Phase 3: Metadata — awaiting Tanner's replies (see open_questions.md)
+- [x] Phase 3: Metadata
 - [x] Phase 4: Synchronization analysis
-- [ ] Phase 5: Code generation (backbone in place; interfaces to be implemented)
+- [ ] Phase 5: Code generation
 - [ ] Phase 6: Testing & validation
 - [ ] Phase 7: DANDI upload

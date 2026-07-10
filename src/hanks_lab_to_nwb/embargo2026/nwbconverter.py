@@ -1,4 +1,5 @@
 """NWBConverter for Hanks lab fiber photometry dataset."""
+
 from neuroconv import NWBConverter
 from neuroconv.datainterfaces import DoricFiberPhotometryInterface
 

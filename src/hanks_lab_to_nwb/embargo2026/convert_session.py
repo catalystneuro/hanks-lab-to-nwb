@@ -1,20 +1,50 @@
-"""Convert a single ClassicRLTasks (bandit) session to NWB."""
+"""Convert a single Hanks lab session (WM or bandit task) to NWB."""
+
+import datetime
 import pickle
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from neuroconv.utils import dict_deep_update, load_dict_from_file
 
-from hanks_lab_to_nwb.utils import filter_optical_fibers_for_session, patch_fp_metadata_for_session
-from hanks_lab_to_nwb.converters import HanksLabNWBConverter
+from hanks_lab_to_nwb.embargo2026 import HanksLabNWBConverter
+from hanks_lab_to_nwb.utils import (
+    filter_optical_fibers_for_session,
+    patch_fp_metadata_for_session,
+)
 
-# Network-mounted .doric files require locking disabled for HDF5
-# os.environ.setdefault("HDF5_USE_FILE_LOCKING", "FALSE")
+_TZ = ZoneInfo("America/Los_Angeles")
 
-# AIN channel → brain region, keyed by session ID (from Subj Info.txt)
+# AIN channel → brain region per session (from Subj Info.txt)
 _SESSION_AIN_TO_REGION = {
-    119974: {1: "NAc", 2: "PL", 3: "DLS", 4: "DMS"},   # subj 400
-    124949: {1: "NAc", 2: "DMS", 3: "TS",  4: "DLS"},   # subj 238
+    119247: {1: "DLS", 2: "PL", 3: "DMS", 4: "NAc"},  # subj 400, WM
+    119974: {1: "NAc", 2: "PL", 3: "DLS", 4: "DMS"},  # subj 400, Bandit
+    124770: {1: "DMS", 2: "DLS", 3: "TS", 4: "NAc"},  # subj 238, WM
+    124949: {1: "NAc", 2: "DMS", 3: "TS", 4: "DLS"},  # subj 238, Bandit
+}
+
+# session → task-specific metadata YAML (determines session_description and keywords)
+_SESSION_TASK_TYPE = {
+    119247: "wm_task",
+    119974: "bandit_task",
+    124770: "wm_task",
+    124949: "bandit_task",
+}
+
+_SUBJECT_METADATA = {
+    400: dict(
+        sex="M",
+        strain="Long Evans",
+        date_of_birth=datetime.datetime(2024, 3, 19, tzinfo=_TZ),
+        weight="530 g",
+    ),
+    238: dict(
+        sex="M",
+        strain="Long Evans",
+        # TODO: confirm exact date — lab reported "2025-05-0" (likely 2025-05-01)
+        date_of_birth=datetime.datetime(2025, 5, 1, tzinfo=_TZ),
+        weight="540 g",
+    ),
 }
 
 
@@ -24,14 +54,14 @@ def session_to_nwb(
     output_dir_path: str | Path,
     stub_test: bool = False,
 ):
-    """Convert one bandit task session to NWB.
+    """Convert one Hanks lab session to NWB (FP raw data only).
 
     Parameters
     ----------
     session_id :
-        Integer session ID, e.g. 119974. Used to locate all source files:
-        Session_{sess_id}.doric, fp_data_{sess_id}.pkl,
-        sess_data_{sess_id}.pkl, mov_{sess_id}.mp4
+        Integer session ID (e.g. 119974). Must be in _SESSION_AIN_TO_REGION.
+        Used to locate Session_{session_id}.doric, fp_data_{session_id}.pkl,
+        and sess_data_{session_id}.pkl.
     data_dir_path :
         Directory containing all source files for this session.
     output_dir_path :
@@ -47,9 +77,7 @@ def session_to_nwb(
     output_dir_path.mkdir(parents=True, exist_ok=True)
 
     source_data = dict(
-        DoricFP=dict(
-            file_path=str(data_dir_path / f"Session_{session_id}.doric"),
-        ),
+        DoricFP=dict(file_path=str(data_dir_path / f"Session_{session_id}.doric")),
     )
     conversion_options = dict(
         DoricFP=dict(stub_test=stub_test, timing_source="aligned_timestamps"),
@@ -58,34 +86,30 @@ def session_to_nwb(
     converter = HanksLabNWBConverter(source_data=source_data)
     metadata = converter.get_metadata()
 
-    # session_start_time = when the Doric recording started (t=0 reference)
     session_start_time = metadata["NWBFile"]["session_start_time"]
     if session_start_time.tzinfo is None:
-        tz = ZoneInfo("America/Los_Angeles")  # TODO: confirm with Tanner (UC Davis)
-        metadata["NWBFile"]["session_start_time"] = session_start_time.replace(tzinfo=tz)
+        metadata["NWBFile"]["session_start_time"] = session_start_time.replace(tzinfo=_TZ)
 
     with open(data_dir_path / f"sess_data_{session_id}.pkl", "rb") as f:
         sess_df = pickle.load(f)
     subject_id = str(int(sess_df["subjid"].iloc[0]))
 
-    metadata["NWBFile"]["session_id"] = str(session_id).replace("_", "-")
+    metadata["NWBFile"]["session_id"] = str(session_id)
 
-    editable_metadata = load_dict_from_file(Path(__file__).parent / "metadata.yaml")
-    metadata = dict_deep_update(metadata, editable_metadata)
+    _metadata_dir = Path(__file__).parent / "metadata"
+    task_type = _SESSION_TASK_TYPE[session_id]
+    task_metadata = load_dict_from_file(_metadata_dir / f"{task_type}.yaml")
+    metadata = dict_deep_update(metadata, task_metadata)
 
-    # Shared FP hardware (models + instances) — single source of truth for both tasks
-    fiber_photometry_metadata = load_dict_from_file(
-        Path(__file__).parent.parent / "metadata" / "fiber_photometry.yaml"
-    )
+    fiber_photometry_metadata = load_dict_from_file(_metadata_dir / "fiber_photometry.yaml")
     metadata = dict_deep_update(metadata, fiber_photometry_metadata)
 
     metadata["Subject"]["subject_id"] = subject_id
+    metadata["Subject"].update(_SUBJECT_METADATA[int(subject_id)])
 
-    # Session-specific FP: filter optical fibers to session regions, add coords, patch table/series
     ain_to_region = _SESSION_AIN_TO_REGION[session_id]
     fp_meta = metadata["Ophys"]["FiberPhotometry"]
-    fp_data_file_path = data_dir_path / f"fp_data_{session_id}.pkl"
-    with open(fp_data_file_path, "rb") as f:
+    with open(data_dir_path / f"fp_data_{session_id}.pkl", "rb") as f:
         fp_data = pickle.load(f)
     filter_optical_fibers_for_session(fp_meta, ain_to_region, fp_data)
     patch_fp_metadata_for_session(fp_meta, ain_to_region)
@@ -102,7 +126,6 @@ def session_to_nwb(
 
 
 if __name__ == "__main__":
-    # Parameters for conversion
     session_id = 119974
     data_dir_path = Path("/Users/weian/source_data/hanks-lab/For Catalyst Neuro")
     output_dir_path = Path("/Users/weian/catalystneuro/hanks-lab-to-nwb/nwb_output")
