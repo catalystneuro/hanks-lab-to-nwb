@@ -80,7 +80,7 @@ def session_to_nwb(
         DoricFP=dict(file_path=str(data_dir_path / f"Session_{session_id}.doric")),
     )
     conversion_options = dict(
-        DoricFP=dict(stub_test=stub_test, timing_source="aligned_timestamps"),
+        DoricFP=dict(stub_test=stub_test, timing_source="aligned_starting_time_and_rate"),
     )
 
     converter = HanksLabNWBConverter(source_data=source_data)
