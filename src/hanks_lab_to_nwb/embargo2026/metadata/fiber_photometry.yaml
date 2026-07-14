@@ -8,265 +8,155 @@
 #   AOUT01 (420 nm, 420-435 nm filter) + AOUT03 (415 nm, 410-420 nm filter): isosbestic control
 #   AOUT02 (490 nm, 470-493 nm filter) + AOUT04 (490 nm, 460-490 nm filter): dLight3.8 signal
 #   AIN01–04 are four independent photodetector channels, one per implant site.
-#   Note: AOUT03 is labeled "Ch3_420" in the Doric acquisition software but
-#   the actual LED is 415 nm — software labels are for display only.
-#
-# What is NOT here (session/subject-specific, generated from fp_data_*.pkl):
-#   OpticalFibers — implant coordinates differ per subject
-#   FiberPhotometryTable — region assignments differ per session
-#   FiberPhotometryResponseSeries — stream names depend on session layout
 
-Ophys:
-  FiberPhotometry:
+# ── Device models ──────────────────────────────────────────────────────────────
+# Flat dict keyed by metadata_key. `type` selects the ndx-ophys-devices class.
 
-    # ── Device models ──────────────────────────────────────────────────────────
+DeviceModels:
+  doric_optical_fiber_model:
+    type: OpticalFiberModel
+    name: doric_optical_fiber_model
+    manufacturer: RWD
+    model_number: R-FOC-BL400C-50NA
+    description: >-
+      Flat 400 µm core multimode optical fiber with 1.25 mm ceramic ferrule
+      (RWD R-FOC-BL400C-50NA), used for dLight3.8 dopamine imaging in striatal
+      and prefrontal regions. Stereotaxic coordinates targeted to Paxinos &
+      Watson rat brain atlas, 7th edition, with bregma as the reference point.
+    numerical_aperture: 0.5
+    core_diameter_in_um: 400.0
 
-    OpticalFiberModels:
-      - name: doric_optical_fiber_model
-        manufacturer: RWD
-        model_number: R-FOC-BL400C-50NA
-        description: >-
-          Flat 400 µm core multimode optical fiber with 1.25 mm ceramic ferrule
-          (RWD R-FOC-BL400C-50NA), used for dLight3.8 dopamine imaging in striatal
-          and prefrontal regions. Stereotaxic coordinates targeted to Paxinos &
-          Watson rat brain atlas, 7th edition, with bregma as the reference point.
-        numerical_aperture: 0.5
-        core_diameter_in_um: 400.0
-        ferrule_name: Ceramic Ferrule
-        ferrule_diameter_in_mm: 1.25
+  doric_isosbestic_led_model:
+    type: ExcitationSourceModel
+    name: doric_isosbestic_led_model
+    manufacturer: Doric Lenses
+    description: >-
+      Doric Connecterized 415 nm LED used as the isosbestic excitation source
+      for dLight3.8. Central wavelength: 415 nm, FWHM: 13 nm.
+      AOUT01 (AIN01-02) is paired with a 420-435 nm bandpass filter (effective ~420 nm).
+      AOUT03 (AIN03-04) is paired with a 410-420 nm bandpass filter (effective ~415 nm).
+      Exact per-channel excitation wavelength is in FiberPhotometryTable.excitation_wavelength_in_nm.
+    source_type: LED
+    excitation_mode: one-photon
+    wavelength_range_in_nm: [408.5, 421.5]
 
-    ExcitationSourceModels:
-      - name: doric_isosbestic_led_model
-        manufacturer: Doric Lenses
-        description: >-
-          Doric Connecterized 415 nm LED used as the isosbestic excitation source
-          for dLight3.8. Central wavelength: 415 nm, FWHM: 13 nm.
-          AOUT01 (AIN01-02) is paired with a 420-435 nm bandpass filter (effective ~420 nm).
-          AOUT03 (AIN03-04) is paired with a 410-420 nm bandpass filter (effective ~415 nm).
-        source_type: LED
-        excitation_mode: one-photon
-        wavelength_range_in_nm: [408.5, 421.5]  # peak 415 nm, FWHM 13 nm; source: https://neuro.doriclenses.com/products/cled
+  doric_signal_led_model:
+    type: ExcitationSourceModel
+    name: doric_signal_led_model
+    manufacturer: Doric Lenses
+    description: >-
+      Doric Connecterized 490 nm LED excitation source for dLight3.8.
+    source_type: LED
+    excitation_mode: one-photon
+    wavelength_range_in_nm: [477.0, 503.0]
 
-      - name: doric_490nm_led_model
-        manufacturer: Doric Lenses
-        description: >-
-          Doric Connecterized 490 nm LED excitation source for dLight3.8.
-        source_type: LED
-        excitation_mode: one-photon
-        wavelength_range_in_nm: [477.0, 503.0]  # peak 490 nm, FWHM 26 nm; source: https://neuro.doriclenses.com/products/cled
+  doric_photodetector_model:
+    type: PhotodetectorModel
+    name: doric_photodetector_model
+    manufacturer: Doric Lenses
+    model_number: iFMC
+    description: >-
+      Doric iFMC minicube integrated Si photodiode photodetector with 960 nm peak wavelength.
+    detector_type: PMT
+    gain: 7.6
+    gain_unit: V/nW
+    wavelength_range_in_nm: [350.0, 1000.0]
 
-    PhotodetectorModels:
-      - name: doric_photodetector_model
-        manufacturer: Doric Lenses
-        model_number: iFMC
-        description: >-
-          Doric iFMC minicube integrated Si photodiode photodetector with 960 nm peak wavelength.
-        detector_type: PMT
-        gain: 7.6
-        gain_unit: V/nW
-        wavelength_range_in_nm: [350.0, 1000.0]
+  emission_filter_model:
+    type: BandOpticalFilterModel
+    name: emission_filter_model
+    manufacturer: Doric Lenses
+    description: >-
+      Bandpass emission filter 500-550 nm integrated in all four Doric iFMC minicubes.
+    filter_type: Bandpass
+    center_wavelength_in_nm: 525.0
+    bandwidth_in_nm: 50.0
 
-    BandOpticalFilterModels:
-      # Emission filter — identical on all four iFMC channels (500-550 nm)
-      - name: emission_filter_model
-        manufacturer: Doric Lenses
-        description: >-
-          Bandpass emission filter 500-550 nm integrated in Doric iFMC minicube.
-        filter_type: Bandpass
-        center_wavelength_in_nm: 525.0
-        bandwidth_in_nm: 50.0
+  # Per-region excitation filter models are added by filter_optical_fibers_for_session()
+  # (keys: excitation_filter_signal_model_{region}, excitation_filter_isosbestic_model_{region})
 
-      # Excitation filter models — one per region, {region} expanded by build_metadata.py.
-      # center_wavelength_in_nm and bandwidth_in_nm are also set by code based on
-      # AIN channel group (AIN01-02 → iFMC5: signal 470-493 nm / iso 420-435 nm;
-      #                    AIN03-04 → iFMC4: signal 460-490 nm / iso 410-420 nm).
-      - name: "excitation_filter_signal_model_{region}"
-        manufacturer: Doric Lenses
-        filter_type: Bandpass
-        description: "Signal excitation bandpass filter for {region} in Doric iFMC minicube."
+# ── Device instances ───────────────────────────────────────────────────────────
+# Flat dict keyed by metadata_key. `type` selects the class; `device_model_metadata_key`
+# resolves to the model above. Optical fibers (with fiber_insertion) are added per-session
+# by filter_optical_fibers_for_session().
 
-      - name: "excitation_filter_isosbestic_model_{region}"
-        manufacturer: Doric Lenses
-        filter_type: Bandpass
-        description: "Isosbestic excitation bandpass filter for {region} in Doric iFMC minicube."
+Devices:
+  excitation_source_isosbestic:
+    type: ExcitationSource
+    name: excitation_source_isosbestic
+    device_model_metadata_key: doric_isosbestic_led_model
 
-    # ── Indicator ──────────────────────────────────────────────────────────────
+  excitation_source_signal:
+    type: ExcitationSource
+    name: excitation_source_signal
+    device_model_metadata_key: doric_signal_led_model
 
-    FiberPhotometryIndicators:
-      - name: dLight3.8
-        label: dLight3.8
-        manufacturer: UNC Vector Core
-        description: >-
-          Genetically encoded GPCR-activation-based fluorescent dopamine indicator
-          dLight3.8. Expressed via AAV9-CAG-dLight3.8 (UNC Vector Core).
-          Isosbestic excitation: ~420 nm. Ligand excitation peak: ~490 nm.
-          Emission peak: ~530 nm.
+  photodetector_ain01:
+    type: Photodetector
+    name: PhotodetectorAIN01
+    device_model_metadata_key: doric_photodetector_model
 
-    # ── Excitation source instances ────────────────────────────────────────────
-    # Both isosbestic channels use the same Doric 415 nm LED model; the per-channel
-    # filter difference (420-435 nm vs 410-420 nm) is captured in
-    # FiberPhotometryTable.excitation_wavelength_in_nm (420.0 vs 415.0).
+  photodetector_ain02:
+    type: Photodetector
+    name: PhotodetectorAIN02
+    device_model_metadata_key: doric_photodetector_model
 
-    ExcitationSources:
-      - name: excitation_source_isosbestic
-        manufacturer: Doric Lenses
-        description: >-
-          Doric Connecterized 415 nm isosbestic LED on the FP Console.
-          AOUT01 (420-435 nm filter, ~420 nm) drives AIN01-02;
-          AOUT03 (410-420 nm filter, ~415 nm) drives AIN03-04.
-          Exact wavelength per channel pair is in FiberPhotometryTable.excitation_wavelength_in_nm.
-        model: doric_isosbestic_led_model
+  photodetector_ain03:
+    type: Photodetector
+    name: PhotodetectorAIN03
+    device_model_metadata_key: doric_photodetector_model
 
-      - name: excitation_source_signal
-        manufacturer: Doric Lenses
-        description: >-
-          Doric Connecterized 490 nm dopamine signal LED on the FP Console.
-          AOUT02 (470-493 nm filter) drives AIN01-02;
-          AOUT04 (460-490 nm filter) drives AIN03-04.
-        model: doric_490nm_led_model
+  photodetector_ain04:
+    type: Photodetector
+    name: PhotodetectorAIN04
+    device_model_metadata_key: doric_photodetector_model
 
-    # ── Photodetector instances ────────────────────────────────────────────────
-    # AIN01-04 are four independent photodetector channels.
-    # Which brain region each AIN measures varies per session/subject —
-    # that mapping is captured in FiberPhotometryTable (patched by convert_session.py).
+  emission_filter:
+    type: BandOpticalFilter
+    name: emission_filter
+    device_model_metadata_key: emission_filter_model
 
-    Photodetectors:
-      - name: PhotodetectorAIN01
-        manufacturer: Doric Lenses
-        description: "AIN01 analog input channel of Doric FP Console"
-        model: doric_photodetector_model
+  # Per-region optical fibers and excitation filters are added by filter_optical_fibers_for_session()
+  # (keys: optical_fiber_{region}, excitation_filter_signal_{region}, excitation_filter_isosbestic_{region})
 
-      - name: PhotodetectorAIN02
-        manufacturer: Doric Lenses
-        description: "AIN02 analog input channel of Doric FP Console"
-        model: doric_photodetector_model
+# ── Fiber photometry containers ────────────────────────────────────────────────
 
-      - name: PhotodetectorAIN03
-        manufacturer: Doric Lenses
-        description: "AIN03 analog input channel of Doric FP Console"
-        model: doric_photodetector_model
+FiberPhotometry:
 
-      - name: PhotodetectorAIN04
-        manufacturer: Doric Lenses
-        description: "AIN04 analog input channel of Doric FP Console"
-        model: doric_photodetector_model
+  FiberPhotometryIndicators:
+    dlight38:
+      name: dLight3.8
+      label: dLight3.8
 
-    # ── Optical fiber instances ───────────────────────────────────────────────
-    # Single template — {region} is expanded per session by filter_optical_fibers_for_session().
-    # fiber_insertion coordinates are also injected at that point from fp_data_*.pkl.
+  FiberPhotometryTable:
+    name: fiber_photometry_table
+    description: >-
+      Metadata for all fiber photometry recording sites and excitation wavelengths
+      in this session. Each row represents one brain region at one excitation wavelength
+      (isosbestic or signal). The four isosbestic rows (AIN01-04) are followed by the
+      four signal rows (AIN01-04); row order matches the channel order in the
+      FiberPhotometryResponseSeries data arrays.
+    rows: {}
+    # Rows are added per-session by patch_fp_metadata_for_session() with keys:
+    #   iso_ain01 … iso_ain04  (isosbestic control, AIN01-04 → regions)
+    #   sig_ain01 … sig_ain04  (dLight3.8 signal, AIN01-04 → regions)
 
-    OpticalFibers:
-      - name: "optical_fiber_{region}"
-        manufacturer: RWD
-        description: "RWD R-FOC-BL400C-50NA 400 µm flat fiber optic cannula implanted in {region}"
-        model: doric_optical_fiber_model
+  # Per-interface response series (one per signal type, keyed by metadata_key).
+  # fiber_photometry_table_region and fiber_photometry_table_region_description
+  # are filled in by patch_fp_metadata_for_session().
 
-    # ── Band optical filter instances ─────────────────────────────────────────
-    # Emission filter is shared across all channels — single instance, no {region} template.
-    # Excitation filter templates are expanded per region by filter_optical_fibers_for_session().
-    # Excitation filter model differs by AIN channel group (AIN01-02 → iFMC5,
-    # AIN03-04 → iFMC4); the model field is overwritten per region in build_metadata.py.
+  isosbestic_series:
+    name: FiberPhotometryResponseSeriesIsosbesticControl
+    description: >-
+      dLight3.8 isosbestic control signals from four brain regions at 415/420 nm, acquired via lock-in detection.
+    unit: a.u.
+    fiber_photometry_table_region: []
+    fiber_photometry_table_region_description: PLACEHOLDER
 
-    BandOpticalFilters:
-      - name: emission_filter
-        manufacturer: Doric Lenses
-        description: "The emission filter integrated in all Doric iFMC minicubes."
-        model: emission_filter_model
-
-      - name: "excitation_filter_isosbestic_{region}"
-        manufacturer: Doric Lenses
-        description: "Isosbestic excitation bandpass filter in Doric iFMC minicube at {region}."
-        model: "excitation_filter_isosbestic_model_{region}"
-
-      - name: "excitation_filter_signal_{region}"
-        manufacturer: Doric Lenses
-        description: "Signal excitation bandpass filter in Doric iFMC minicube at {region}."
-        model: "excitation_filter_signal_model_{region}"
-
-    # ── FiberPhotometryTable ───────────────────────────────────────────────────
-    # Rows ordered by (AOUT channel, AIN channel). {region} in location and
-    # optical_fiber is expanded per session by patch_fp_metadata_for_session().
-
-    FiberPhotometryTable:
-      name: fiber_photometry_table
-      description: >-
-        Metadata for all fiber photometry recording sites and excitation
-        wavelengths in this session.
-      rows:
-        - name: "0"
-          location: "{region}"
-          excitation_wavelength_in_nm: 420.0
-          emission_wavelength_in_nm: 530.0
-          indicator: dLight3.8
-          optical_fiber: "optical_fiber_{region}"
-          excitation_source: excitation_source_isosbestic
-          photodetector: PhotodetectorAIN01
-        - name: "1"
-          location: "{region}"
-          excitation_wavelength_in_nm: 420.0
-          emission_wavelength_in_nm: 530.0
-          indicator: dLight3.8
-          optical_fiber: "optical_fiber_{region}"
-          excitation_source: excitation_source_isosbestic
-          photodetector: PhotodetectorAIN02
-        - name: "2"
-          location: "{region}"
-          excitation_wavelength_in_nm: 490.0
-          emission_wavelength_in_nm: 530.0
-          indicator: dLight3.8
-          optical_fiber: "optical_fiber_{region}"
-          excitation_source: excitation_source_signal
-          photodetector: PhotodetectorAIN01
-        - name: "3"
-          location: "{region}"
-          excitation_wavelength_in_nm: 490.0
-          emission_wavelength_in_nm: 530.0
-          indicator: dLight3.8
-          optical_fiber: "optical_fiber_{region}"
-          excitation_source: excitation_source_signal
-          photodetector: PhotodetectorAIN02
-        - name: "4"
-          location: "{region}"
-          excitation_wavelength_in_nm: 415.0
-          emission_wavelength_in_nm: 530.0
-          indicator: dLight3.8
-          optical_fiber: "optical_fiber_{region}"
-          excitation_source: excitation_source_isosbestic
-          photodetector: PhotodetectorAIN03
-        - name: "5"
-          location: "{region}"
-          excitation_wavelength_in_nm: 415.0
-          emission_wavelength_in_nm: 530.0
-          indicator: dLight3.8
-          optical_fiber: "optical_fiber_{region}"
-          excitation_source: excitation_source_isosbestic
-          photodetector: PhotodetectorAIN04
-        - name: "6"
-          location: "{region}"
-          excitation_wavelength_in_nm: 490.0
-          emission_wavelength_in_nm: 530.0
-          indicator: dLight3.8
-          optical_fiber: "optical_fiber_{region}"
-          excitation_source: excitation_source_signal
-          photodetector: PhotodetectorAIN03
-        - name: "7"
-          location: "{region}"
-          excitation_wavelength_in_nm: 490.0
-          emission_wavelength_in_nm: 530.0
-          indicator: dLight3.8
-          optical_fiber: "optical_fiber_{region}"
-          excitation_source: excitation_source_signal
-          photodetector: PhotodetectorAIN04
-
-    # ── FiberPhotometryResponseSeries ─────────────────────────────────────────
-    # Two templates — one per signal type. {region} is expanded at conversion time
-    # by patch_fp_metadata_for_session() for each region active in the session.
-    # stream_name and fiber_photometry_table_region are also injected by that function.
-
-    FiberPhotometryResponseSeries:
-      - name: "FiberPhotometryResponseSeriesRawSignal{region}"
-        description: "dLight3.8 dopamine signal from {region} at 490 nm, acquired via lock-in detection."
-        unit: V
-      - name: "FiberPhotometryResponseSeriesIsosbesticControl{region}"
-        description: "dLight3.8 isosbestic control from {region} at 415/420 nm, acquired via lock-in detection."
-        unit: V
+  signal_series:
+    name: FiberPhotometryResponseSeriesRawSignal
+    description: >-
+      dLight3.8 dopamine signal from four brain regions at 490 nm, acquired via lock-in detection.
+    unit: a.u.
+    fiber_photometry_table_region: []
+    fiber_photometry_table_region_description: PLACEHOLDER
