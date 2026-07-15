@@ -1,0 +1,44 @@
+NWBFile:
+  session_description: >
+    This session contains fiber photometry and behavioral data from a rat performing
+    an auditory working memory delay response task (ToneCatDelayResp). On each trial,
+    a center port LED cue signals trial availability; the rat initiates by poking the
+    center port and maintaining fixation, hears 1 auditory tone during a stimulus
+    window, and after a delay period must poke the correct side port based on the
+    remembered tone category to receive a water reward. Behavioral events are
+    controlled and recorded by Bpod. Fluorescence signals are acquired simultaneously
+    from up to four brain regions using a Doric system with dLight 3.8 (dopamine
+    indicator) at isosbestic and ligand excitation wavelengths.
+  experiment_description: >
+    This experiment contains simultaneous fiber photometry and behavioral data from
+    rats performing decision-making and working memory tasks, collected in the Hanks
+    lab to study the neural basis of these behaviors. Rats are implanted with optical
+    fibers targeting up to four striatal and prefrontal regions (nucleus accumbens,
+    dorsomedial striatum, dorsolateral striatum, tail of striatum, and prelimbic
+    cortex) and injected with an AAV expressing the dopamine indicator dLight 3.8.
+    Two behavioral protocols are used: an auditory working memory delay response task
+    and a two-arm bandit task in which rats track reward probabilities that switch
+    across blocks. Behavioral events are controlled and recorded by Bpod. Fluorescence
+    signals are acquired with a Doric system using lock-in detection at isosbestic and
+    ligand excitation wavelengths. Video recordings are collected in each session, with
+    ongoing work on automated pose estimation.
+  keywords:
+    - dopamine
+    - fiber photometry
+    - working memory
+    - decision making
+    - striatum
+    - prefrontal cortex
+    - rat
+    - dLight
+  institution: University of California, Davis
+  lab: Hanks
+  experimenter:
+    - Stevenson, Tanner
+  related_publications: []  # TODO: add DOI once published, format "doi:10.xxxx/xxxxx"
+
+Subject:
+  species: Rattus norvegicus
+  description: >
+    Rat implanted with optical fibers targeting striatal and prefrontal regions,
+    injected with AAV9-CAG-dLight3.8 (UNC Vector Core) for dopamine imaging.

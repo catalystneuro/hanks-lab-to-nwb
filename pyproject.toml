@@ -14,11 +14,11 @@ classifiers = [
 ]
 
 dependencies = [
-  "neuroconv @ git+https://github.com/catalystneuro/neuroconv.git@main",
+  "neuroconv @ git+https://github.com/catalystneuro/neuroconv.git@d79d930fcbdbdcac11fab6e86e84ed74f24d7778", # pinned: fiber_photometry/doric interface with stream_names support
   "nwbinspector",
   "ndx-fiber-photometry",
   "ndx-ophys-devices",
-  "ndx-structured-behavior",
+  #"ndx-structured-behavior",
   "opencv-python-headless",
   "matplotlib",
 ]
@@ -36,6 +36,9 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build]
 include = [
