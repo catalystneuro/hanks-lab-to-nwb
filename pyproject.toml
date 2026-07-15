@@ -14,7 +14,7 @@ classifiers = [
 ]
 
 dependencies = [
-  "neuroconv @ git+https://github.com/catalystneuro/neuroconv.git@main",
+  "neuroconv @ git+https://github.com/catalystneuro/neuroconv.git@main", # doric csv fp interface
   "nwbinspector",
   "ndx-fiber-photometry",
   "ndx-ophys-devices",
