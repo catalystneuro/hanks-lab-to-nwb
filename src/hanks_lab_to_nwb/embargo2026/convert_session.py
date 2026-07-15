@@ -8,10 +8,7 @@ from zoneinfo import ZoneInfo
 from neuroconv.utils import dict_deep_update, load_dict_from_file
 
 from hanks_lab_to_nwb.embargo2026 import HanksLabNWBConverter
-from hanks_lab_to_nwb.utils import (
-    filter_optical_fibers_for_session,
-    patch_fp_metadata_for_session,
-)
+from hanks_lab_to_nwb.utils import patch_fp_metadata_for_session
 
 _TZ = ZoneInfo("America/Los_Angeles")
 
@@ -76,11 +73,19 @@ def session_to_nwb(
         output_dir_path = output_dir_path / "nwb_stub"
     output_dir_path.mkdir(parents=True, exist_ok=True)
 
+    _metadata_dir = Path(__file__).parent / "metadata"
+    _fp_yaml = load_dict_from_file(_metadata_dir / "fiber_photometry.yaml")
+    iso_streams = _fp_yaml["FiberPhotometry"]["isosbestic_series"]["stream_names"]
+    sig_streams = _fp_yaml["FiberPhotometry"]["signal_series"]["stream_names"]
+
+    doric_path = str(data_dir_path / f"Session_{session_id}.doric")
     source_data = dict(
-        DoricFP=dict(file_path=str(data_dir_path / f"Session_{session_id}.doric")),
+        DoricFPIsosbestic=dict(file_path=doric_path, stream_names=iso_streams, metadata_key="isosbestic_series"),
+        DoricFPSignal=dict(file_path=doric_path, stream_names=sig_streams, metadata_key="signal_series"),
     )
     conversion_options = dict(
-        DoricFP=dict(stub_test=stub_test, timing_source="aligned_starting_time_and_rate"),
+        DoricFPIsosbestic=dict(stub_test=stub_test),
+        DoricFPSignal=dict(stub_test=stub_test),
     )
 
     converter = HanksLabNWBConverter(source_data=source_data)
@@ -96,23 +101,19 @@ def session_to_nwb(
 
     metadata["NWBFile"]["session_id"] = str(session_id)
 
-    _metadata_dir = Path(__file__).parent / "metadata"
     task_type = _SESSION_TASK_TYPE[session_id]
     task_metadata = load_dict_from_file(_metadata_dir / f"{task_type}.yaml")
     metadata = dict_deep_update(metadata, task_metadata)
 
-    fiber_photometry_metadata = load_dict_from_file(_metadata_dir / "fiber_photometry.yaml")
-    metadata = dict_deep_update(metadata, fiber_photometry_metadata)
+    metadata = dict_deep_update(metadata, _fp_yaml, append_list=False)
 
     metadata["Subject"]["subject_id"] = subject_id
     metadata["Subject"].update(_SUBJECT_METADATA[int(subject_id)])
 
     ain_to_region = _SESSION_AIN_TO_REGION[session_id]
-    fp_meta = metadata["Ophys"]["FiberPhotometry"]
     with open(data_dir_path / f"fp_data_{session_id}.pkl", "rb") as f:
         fp_data = pickle.load(f)
-    filter_optical_fibers_for_session(fp_meta, ain_to_region, fp_data)
-    patch_fp_metadata_for_session(fp_meta, ain_to_region)
+    patch_fp_metadata_for_session(metadata, ain_to_region, fp_data)
 
     nwbfile_path = output_dir_path / f"sub-{subject_id}_ses-{session_id}.nwb"
 
