@@ -1,45 +1,43 @@
-"""Shared utilities for building session-specific FP metadata from the shared yaml."""
+"""Session-specific patching of FP metadata loaded from fiber_photometry.yaml."""
 
-# AOUT channel → excitation wavelength (nm)
-_AOUT_WAVELENGTH_NM = {1: 420, 2: 490, 3: 415, 4: 490}
-
-# AIN channel → (iso_center_nm, iso_bw_nm, sig_center_nm, sig_bw_nm)
-# AIN01-02: iFMC5 minicube (iso 420-435 nm, signal 470-493 nm)
-# AIN03-04: iFMC4 minicube (iso 410-420 nm, signal 460-490 nm)
-_AIN_TO_FILTER_SPECS = {
-    1: (427.5, 15.0, 481.5, 23.0),
-    2: (427.5, 15.0, 481.5, 23.0),
-    3: (415.0, 10.0, 475.0, 30.0),
-    4: (415.0, 10.0, 475.0, 30.0),
+# Keys produced by get_default_fiber_photometry_metadata — removed before write
+# so placeholder scaffold devices don't appear in the NWB file alongside real ones.
+# Allen Mouse Brain Atlas full region names, keyed by lab abbreviation.
+# DLS/DMS are informal subdivisions of the Allen "Caudoputamen" (CP) structure.
+_ATLAS_REGION_NAME = {
+    "NAc": "Nucleus accumbens",
+    "DLS": "Dorsolateral striatum",
+    "DMS": "Dorsomedial striatum",
+    "PL": "Prelimbic area",
+    "TS": "Tail of striatum",
 }
 
-# (ain_channel, signal_type) → (aout_channel, FiberPhotometryTable row index)
-# Doric lock-in wiring: AIN 1–2 share AOUT 1 (isosbestic) / AOUT 2 (signal)
-#                       AIN 3–4 share AOUT 3 (isosbestic) / AOUT 4 (signal)
-_AIN_TYPE_TO_AOUT_ROW = {
-    # AIN  type        AOUT  row
-    (1, "isosbestic"): (1, 0),
-    (2, "isosbestic"): (1, 1),
-    (1, "raw signal"): (2, 2),
-    (2, "raw signal"): (2, 3),
-    (3, "isosbestic"): (3, 4),
-    (4, "isosbestic"): (3, 5),
-    (3, "raw signal"): (4, 6),
-    (4, "raw signal"): (4, 7),
-}
+_PLACEHOLDER_DEVICE_MODEL_KEYS = {"optical_fiber_model", "excitation_source_model", "photodetector_model"}
+_PLACEHOLDER_DEVICE_KEYS = {"optical_fiber", "excitation_source", "photodetector"}
+_PLACEHOLDER_INDICATOR_KEYS = {"indicator"}
+_PLACEHOLDER_ROW_KEYS = {"row0"}
 
 
-def filter_optical_fibers_for_session(fp_meta: dict, ain_to_region: dict, fp_data: dict) -> None:
-    """Expand the optical fiber {region} template for each region active in this session.
+def patch_fp_metadata_for_session(metadata: dict, ain_to_region: dict, fp_data: dict) -> None:
+    """Fill in the three session-specific fields in the shared FP metadata.
 
-    Replaces the OpticalFibers list in fp_meta (in-place) with one fiber per session
-    region, substituting {region} in all string fields and populating fiber_insertion
-    coordinates from fp_data["implant_info"].
+    The fiber_photometry.yaml contains all hardware metadata and the full
+    FiberPhotometryTable row structure. This function only patches what differs
+    per session/subject:
+
+    1. Removes placeholder scaffold entries left by get_default_fiber_photometry_metadata.
+    2. Sets ``location`` on each of the 8 pre-defined FiberPhotometryTable rows
+       from the AIN→region mapping.
+    3. Sets ``name`` on per-AIN device instances to region-based names
+       (e.g. ``optical_fiber_NAc``, ``excitation_filter_isosbestic_NAc``).
+    4. Sets ``fiber_insertion`` coordinates on each ``optical_fiber_ain0X`` device
+       from ``fp_data["implant_info"]``.
+    5. Sets ``fiber_photometry_table_region_description`` on the two response series.
 
     Parameters
     ----------
-    fp_meta :
-        The Ophys.FiberPhotometry metadata dict — modified in-place.
+    metadata :
+        The full converter metadata dict — modified in-place.
     ain_to_region :
         Mapping of AIN channel numbers to brain region names,
         e.g. {1: "NAc", 2: "PL", 3: "DLS", 4: "DMS"}.
@@ -51,97 +49,47 @@ def filter_optical_fibers_for_session(fp_meta: dict, ain_to_region: dict, fp_dat
         raise KeyError("'implant_info' not found in fp_data.")
     implant_info = fp_data["implant_info"]
 
-    expanded = []
-    for template in fp_meta.get("OpticalFibers", []):
-        if "{region}" not in template.get("name", ""):
-            expanded.append(template)
-            continue
-        for ain in sorted(ain_to_region):
-            region = ain_to_region[ain]
-            fiber = {k: v.replace("{region}", region) if isinstance(v, str) else v for k, v in template.items()}
-            info = implant_info.get(region)
-            if info:
-                fiber["fiber_insertion"] = dict(
-                    insertion_position_ap_in_mm=float(info["AP"]),
-                    insertion_position_ml_in_mm=float(info["ML"]),
-                    insertion_position_dv_in_mm=float(info["DV"]),
-                    position_reference="bregma",
-                    hemisphere=info["side"],
-                )
-            expanded.append(fiber)
+    # 1. Remove placeholder scaffold so it doesn't pollute the NWB file.
+    for key in _PLACEHOLDER_DEVICE_MODEL_KEYS:
+        metadata.get("DeviceModels", {}).pop(key, None)
+    for key in _PLACEHOLDER_DEVICE_KEYS:
+        metadata.get("Devices", {}).pop(key, None)
+    fp_meta = metadata["FiberPhotometry"]
+    for key in _PLACEHOLDER_INDICATOR_KEYS:
+        fp_meta.get("FiberPhotometryIndicators", {}).pop(key, None)
+    table_rows = fp_meta["FiberPhotometryTable"]["rows"]
+    for key in _PLACEHOLDER_ROW_KEYS:
+        table_rows.pop(key, None)
 
-    fp_meta["OpticalFibers"] = expanded
+    # 2, 3 & 4. Patch location, fiber_insertion, and region-based device names per AIN channel.
+    devices = metadata["Devices"]
+    for ain, region in ain_to_region.items():
+        atlas_name = _ATLAS_REGION_NAME.get(region, region)
+        for row_prefix in ("iso", "sig"):
+            row_key = f"{row_prefix}_ain0{ain}"
+            table_rows[row_key]["location"] = atlas_name
 
-    # Expand BandOpticalFilterModels templates — one signal + one isosbestic model per region.
-    # center_wavelength_in_nm and bandwidth_in_nm are injected from _AIN_TO_FILTER_SPECS.
-    expanded_filter_models = []
-    for template in fp_meta.get("BandOpticalFilterModels", []):
-        if "{region}" not in template.get("name", ""):
-            expanded_filter_models.append(template)
-            continue
-        is_isosbestic = "isosbestic" in template["name"]
-        for ain in sorted(ain_to_region):
-            region = ain_to_region[ain]
-            model = {k: v.replace("{region}", region) if isinstance(v, str) else v for k, v in template.items()}
-            iso_center, iso_bw, sig_center, sig_bw = _AIN_TO_FILTER_SPECS[ain]
-            model["center_wavelength_in_nm"] = iso_center if is_isosbestic else sig_center
-            model["bandwidth_in_nm"] = iso_bw if is_isosbestic else sig_bw
-            expanded_filter_models.append(model)
+        # Rename device instances from AIN-indexed to region-named.
+        devices[f"optical_fiber_ain0{ain}"]["name"] = f"optical_fiber_{region}"
+        devices[f"excitation_filter_isosbestic_ain0{ain}"]["name"] = f"excitation_filter_isosbestic_{region}"
+        devices[f"excitation_filter_signal_ain0{ain}"]["name"] = f"excitation_filter_signal_{region}"
 
-    fp_meta["BandOpticalFilterModels"] = expanded_filter_models
+        info = implant_info.get(region, {})
+        if info:
+            devices[f"optical_fiber_ain0{ain}"]["fiber_insertion"] = dict(
+                insertion_position_ap_in_mm=float(info["AP"]),
+                insertion_position_ml_in_mm=float(info["ML"]),
+                insertion_position_dv_in_mm=float(info["DV"]),
+                position_reference="bregma",
+                hemisphere=info["side"],
+            )
 
-    # Expand BandOpticalFilters instance templates — {region} replaced in all string fields,
-    # including the model reference (e.g. "excitation_filter_signal_model_{region}").
-    expanded_filters = []
-    for template in fp_meta.get("BandOpticalFilters", []):
-        if "{region}" not in template.get("name", ""):
-            expanded_filters.append(template)
-            continue
-        for ain in sorted(ain_to_region):
-            region = ain_to_region[ain]
-            filt = {k: v.replace("{region}", region) if isinstance(v, str) else v for k, v in template.items()}
-            expanded_filters.append(filt)
-
-    fp_meta["BandOpticalFilters"] = expanded_filters
-
-
-def patch_fp_metadata_for_session(fp_meta: dict, ain_to_region: dict) -> None:
-    """Fill in session-specific fields in the shared FP metadata.
-
-    FiberPhotometryTable rows: patches `location` and `optical_fiber`.
-
-    FiberPhotometryResponseSeries: expands the two {region} templates from the yaml
-    into one series per active region per signal type, ordered by AIN channel.
-    Injects `stream_name` and `fiber_photometry_table_region` for each expanded series.
-
-    Parameters
-    ----------
-    fp_meta :
-        The Ophys.FiberPhotometry metadata dict — modified in-place.
-    ain_to_region :
-        Mapping of AIN channel numbers to brain region names,
-        e.g. {1: "NAc", 2: "PL", 3: "DLS", 4: "DMS"}.
-    """
-    for row in fp_meta["FiberPhotometryTable"]["rows"]:
-        ain_num = int(row["photodetector"].replace("PhotodetectorAIN", ""))
-        region = ain_to_region[ain_num]
-        row["location"] = region
-        row["optical_fiber"] = f"optical_fiber_{region}"
-
-    expanded = []
-    for template in fp_meta.get("FiberPhotometryResponseSeries", []):
-        if "{region}" not in template.get("name", ""):
-            expanded.append(template)
-            continue
-        signal_type = "raw signal" if "RawSignal" in template["name"] else "isosbestic"
-        for ain in sorted(ain_to_region):
-            region = ain_to_region[ain]
-            aout, row_idx = _AIN_TYPE_TO_AOUT_ROW[(ain, signal_type)]
-            wl = _AOUT_WAVELENGTH_NM[aout]
-            series = {k: v.replace("{region}", region) if isinstance(v, str) else v for k, v in template.items()}
-            series["stream_name"] = f"FPConsole_Signals_Series0001_LockInAOUT0{aout}_AIN0{ain}"
-            series["fiber_photometry_table_region"] = [row_idx]
-            series["fiber_photometry_table_region_description"] = f"{region} {signal_type} ({wl} nm)"
-            expanded.append(series)
-
-    fp_meta["FiberPhotometryResponseSeries"] = expanded
+    # 4. Set region-aware descriptions on the two response series.
+    regions = [_ATLAS_REGION_NAME.get(ain_to_region[ain], ain_to_region[ain]) for ain in sorted(ain_to_region)]
+    regions_str = ", ".join(regions)
+    fp_meta["isosbestic_series"][
+        "fiber_photometry_table_region_description"
+    ] = f"Isosbestic control from {regions_str} at ~415/420 nm (columns follow AIN01-04 order)"
+    fp_meta["signal_series"][
+        "fiber_photometry_table_region_description"
+    ] = f"dLight3.8 dopamine signal from {regions_str} at 490 nm (columns follow AIN01-04 order)"
