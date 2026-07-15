@@ -50,7 +50,7 @@ DataAcquisition/FPConsole/Signals/Series0001/
   AnalogIn/AIN01–04                                            — raw photodetector voltages
 ```
 
-- LockIn time starts at ~0.083 s, dt=0.000166 s (~6016 Hz), session ~4424 s
+- LockIn time starts at ~0.083 s, dt=0.000166 s (6024.10 Hz), session ~4424 s
 - DIO01 encodes trial numbers as 15-bit binary RLE; decoded by `acq_utils.parse_trial_times()`
 
 ---
@@ -62,7 +62,7 @@ DataAcquisition/FPConsole/Signals/Series0001/
   'fp_data': {
     'trial_start_ts': (n_trials+1,),  # Doric-clock timestamps of trial starts
     'time': (n_samples,),             # decimated timestamps (200 Hz / 5 ms)
-    'dec_info': {'decimation': 30, 'initial_dt': 0.000166, 'decimated_dt': 0.00498},
+    'dec_info': {'decimation': 30, 'initial_dt': 0.000166, 'decimated_dt': 0.00498},  # 6024.1 Hz / 30 ≈ 200.8 Hz
     'raw_signals':       {region: {wavelength_str: array}},
     'processed_signals': {region: {'raw_lig', 'raw_iso', 'filtered_lig', 'filtered_iso',
                                    'fitted_iso', 'dff_iso', 'dff_iso_baseline_fband',
