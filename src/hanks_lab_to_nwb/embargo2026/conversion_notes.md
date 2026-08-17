@@ -27,7 +27,7 @@ Dopamine signals recorded simultaneously from up to 4 brain regions via Doric FP
 | Stream | Format | File pattern | Interface |
 |--------|--------|-------------|-----------|
 | FP raw (LockIn) | Doric HDF5 `.doric` | `Session_{sessid}.doric` | `DoricFiberPhotometryInterface` |
-| FP processed (dFF) | Python pickle `.pkl` | `fp_data_{sessid}.pkl` | `ProcessedFiberPhotometryInterface` (follow-up PR) |
+| FP processed (dFF) | Python pickle `.pkl` | `fp_data_{sessid}.pkl` | `ProcessedFiberPhotometryInterface` |
 | Behavioral data | Python pickle `.pkl` | `sess_data_{sessid}.pkl` | `BanditBehaviorInterface` / `WMBehaviorInterface` (follow-up PR) |
 | Video | `.mp4` | `mov_{sessid}.mp4` | `ExternalVideoInterface` (follow-up PR) |
 
@@ -229,7 +229,7 @@ Pre-trial baseline (~12–15 s) has positive timestamps; first trial at `trial_s
 ### FP data → ndx-fiber-photometry
 - `FiberPhotometryTable`: one row per (region × wavelength) channel
 - `FiberPhotometryResponseSeries` in `acquisition`: raw LockIn signals (from .doric)
-- `FiberPhotometryResponseSeries` in `processing["ophys"]`: dFF signals (from pkl) — follow-up PR
+- `FiberPhotometryResponseSeries` in `processing["ophys"]`: dFF signals (from pkl) → `FiberPhotometryResponseSeriesDFF`
 - `OpticalFiber` with `FiberInsertion` per implanted region (AP/ML/DV from pkl)
 
 ### Behavior → trials table (follow-up PR)
@@ -239,6 +239,28 @@ Pre-trial baseline (~12–15 s) has positive timestamps; first trial at `trial_s
 
 ### Video → external reference (follow-up PR)
 - `ImageSeries(external_file=[...])` pointing to `mov_{sessid}.mp4`
+
+---
+
+## Open Questions
+
+### Awaiting lab response (email sent 2026-08-17)
+
+- **Processed signal descriptions** — asked lab to confirm or correct the proposed
+  description for each pkl key (`raw_iso`, `raw_lig`, `filtered_iso`, `filtered_lig`,
+  `fitted_iso`, `baseline_iso`, `baseline_lig`, `baseline_corr_iso`, `baseline_corr_lig`,
+  `fitted_baseline_fband_iso`, `dff_iso`, `dff_iso_baseline_fband`).
+  - **`baseline_iso` / `baseline_lig`**: cutoff listed as ~0.0005 Hz — need to confirm
+    exact value and filter type (Butterworth, moving average, etc.).
+  - **`fitted_baseline_fband_iso` / `dff_iso_baseline_fband`**: need a plain-language
+    description of the frequency-band decomposition step (exact formula/procedure).
+
+- **Timestamps** — confirmed we use `fp_data["fp_data"]["time"]` (Doric clock decimated
+  30×, ~200 Hz) as timestamps for all 12 processed series. Asked lab to flag if there is
+  a corrected/offset version we should use instead.
+
+- **Series inclusion** — asked whether all 12 series should be published, or if any
+  intermediate steps should be omitted. Default is to include everything for provenance.
 
 ---
 
