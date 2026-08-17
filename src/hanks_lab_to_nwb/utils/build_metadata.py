@@ -105,12 +105,8 @@ def patch_fp_metadata_for_session(metadata: dict, ain_to_region: dict, fp_data: 
                 hemisphere=info["side"],
             )
 
-    # 4. Set region-aware descriptions on the two response series.
+    # 4. Set region-aware descriptions on all response series.
     regions = [_ATLAS_REGION_NAME.get(ain_to_region[ain], ain_to_region[ain]) for ain in sorted(ain_to_region)]
     regions_str = ", ".join(regions)
-    fp_meta["isosbestic_series"][
-        "fiber_photometry_table_region_description"
-    ] = f"Isosbestic control from {regions_str} at ~415/420 nm (columns follow AIN01-04 order)"
-    fp_meta["signal_series"][
-        "fiber_photometry_table_region_description"
-    ] = f"dLight3.8 dopamine signal from {regions_str} at 490 nm (columns follow AIN01-04 order)"
+    for meta_key, template in _SERIES_REGION_DESCRIPTION_TEMPLATES.items():
+        fp_meta[meta_key]["fiber_photometry_table_region_description"] = template.format(regions_str=regions_str)
