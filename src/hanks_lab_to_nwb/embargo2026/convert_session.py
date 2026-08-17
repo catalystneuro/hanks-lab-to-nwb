@@ -110,7 +110,7 @@ def session_to_nwb(
     )
     for interface_name, signal_key, meta_key in _PROCESSED_SIGNALS:
         source_data[interface_name] = dict(
-            fp_data_file_path=fp_pkl_path,
+            file_path=fp_pkl_path,
             ain_to_region=ain_to_region,
             signal_key=signal_key,
             metadata_key=meta_key,
