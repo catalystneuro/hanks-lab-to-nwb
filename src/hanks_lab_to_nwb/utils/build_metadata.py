@@ -4,6 +4,27 @@
 # so placeholder scaffold devices don't appear in the NWB file alongside real ones.
 # Allen Mouse Brain Atlas full region names, keyed by lab abbreviation.
 # DLS/DMS are informal subdivisions of the Allen "Caudoputamen" (CP) structure.
+# Description template for each response series' fiber_photometry_table_region_description.
+# {regions_str} is replaced at runtime with the comma-separated region names for this session.
+_SERIES_REGION_DESCRIPTION_TEMPLATES = {
+    # Raw acquisition series (from .doric, ~6024 Hz)
+    "isosbestic_series": "Isosbestic control rows for {regions_str} at ~415/420 nm (columns follow AIN01-04 order)",
+    "signal_series": "dLight3.8 dopamine signal rows for {regions_str} at 490 nm (columns follow AIN01-04 order)",
+    # Processed series (from fp_data pkl, ~200 Hz)
+    "raw_iso_series": "Decimated isosbestic rows for {regions_str} (columns follow AIN01-04 order)",
+    "raw_lig_series": "Decimated signal rows for {regions_str} (columns follow AIN01-04 order)",
+    "filtered_iso_series": "Filtered isosbestic rows for {regions_str} (columns follow AIN01-04 order)",
+    "filtered_lig_series": "Filtered signal rows for {regions_str} (columns follow AIN01-04 order)",
+    "fitted_iso_series": "Fitted isosbestic rows for {regions_str} (columns follow AIN01-04 order)",
+    "baseline_iso_series": "Baseline isosbestic rows for {regions_str} (columns follow AIN01-04 order)",
+    "baseline_lig_series": "Baseline signal rows for {regions_str} (columns follow AIN01-04 order)",
+    "baseline_corr_iso_series": "Baseline-corrected isosbestic rows for {regions_str} (columns follow AIN01-04 order)",
+    "baseline_corr_lig_series": "Baseline-corrected signal rows for {regions_str} (columns follow AIN01-04 order)",
+    "fitted_baseline_fband_iso_series": "Freq-band fitted isosbestic rows for {regions_str} (columns follow AIN01-04 order)",
+    "dff_series": "dLight3.8 dFF rows for {regions_str} (columns follow AIN01-04 order)",
+    "dff_baseline_fband_series": "Freq-band-corrected dFF rows for {regions_str} (columns follow AIN01-04 order)",
+}
+
 _ATLAS_REGION_NAME = {
     "NAc": "Nucleus accumbens",
     "DLS": "Dorsolateral striatum",
