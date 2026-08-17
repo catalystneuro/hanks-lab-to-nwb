@@ -239,7 +239,7 @@ FiberPhotometry:
       # ── Isosbestic rows (AIN01-04) ──
       # location filled per-session by patch_fp_metadata_for_session()
       iso_ain01:
-        location: PLACEHOLDER
+        location: PLACEHOLDER # placeholder values are filled at runtime by patch_fp_metadata_for_session()
         excitation_wavelength_in_nm: 420.0
         emission_wavelength_in_nm: 530.0
         indicator_metadata_key: dlight38
@@ -332,6 +332,7 @@ FiberPhotometry:
   #               (not consumed by NeuroConv metadata system).
   # fiber_photometry_table_region_description: filled per-session by patch_fp_metadata_for_session().
 
+  # ── Raw acquisition series (from Session_{sessid}.doric, ~6024 Hz) ──────
   isosbestic_series:
     name: FiberPhotometryResponseSeriesIsosbesticControl
     description: >-
@@ -355,5 +356,103 @@ FiberPhotometry:
       - FPConsole_Signals_Series0001_LockInAOUT02_AIN02
       - FPConsole_Signals_Series0001_LockInAOUT04_AIN03
       - FPConsole_Signals_Series0001_LockInAOUT04_AIN04
+    fiber_photometry_table_region: [sig_ain01, sig_ain02, sig_ain03, sig_ain04]
+    fiber_photometry_table_region_description: PLACEHOLDER
+
+  # ── Processed series (from fp_data_{sessid}.pkl, ~200 Hz) ───────────────
+  # All fiber_photometry_table_region_description fields are filled per-session
+  # by patch_fp_metadata_for_session().
+
+  raw_iso_series:
+    name: FiberPhotometryResponseSeriesDecimatedIsosbestic
+    description: >-
+      dLight3.8 isosbestic control signal decimated 30× from the Doric acquisition clock (~6024 Hz → ~200 Hz).
+    unit: a.u.
+    fiber_photometry_table_region: [iso_ain01, iso_ain02, iso_ain03, iso_ain04]
+    fiber_photometry_table_region_description: PLACEHOLDER
+
+  raw_lig_series:
+    name: FiberPhotometryResponseSeriesDecimatedSignal
+    description: >-
+      dLight3.8 dopamine signal at 490 nm decimated 30× from the Doric acquisition clock (~6024 Hz → ~200 Hz).
+    unit: V
+    fiber_photometry_table_region: [sig_ain01, sig_ain02, sig_ain03, sig_ain04]
+    fiber_photometry_table_region_description: PLACEHOLDER
+
+  filtered_iso_series:
+    name: FiberPhotometryResponseSeriesFilteredIsosbestic
+    description: Isosbestic signal low-pass filtered at 10 Hz.
+    unit: V
+    fiber_photometry_table_region: [iso_ain01, iso_ain02, iso_ain03, iso_ain04]
+    fiber_photometry_table_region_description: PLACEHOLDER
+
+  filtered_lig_series:
+    name: FiberPhotometryResponseSeriesFilteredSignal
+    description: dLight3.8 dopamine signal low-pass filtered at 10 Hz.
+    unit: V
+    fiber_photometry_table_region: [sig_ain01, sig_ain02, sig_ain03, sig_ain04]
+    fiber_photometry_table_region_description: PLACEHOLDER
+
+  fitted_iso_series:
+    name: FiberPhotometryResponseSeriesFittedIsosbestic
+    description: >-
+      Linear fit of the isosbestic signal scaled to match the dopamine signal
+      (a × iso + b, fitted per region). Used as denominator in ΔF/F.
+    unit: V
+    fiber_photometry_table_region: [iso_ain01, iso_ain02, iso_ain03, iso_ain04]
+    fiber_photometry_table_region_description: PLACEHOLDER
+
+  baseline_iso_series:
+    name: FiberPhotometryResponseSeriesBaselineIsosbestic
+    description: Slow-drift baseline of the isosbestic signal estimated with a very low-frequency low-pass filter (~0.0005 Hz).
+    unit: V
+    fiber_photometry_table_region: [iso_ain01, iso_ain02, iso_ain03, iso_ain04]
+    fiber_photometry_table_region_description: PLACEHOLDER
+
+  baseline_lig_series:
+    name: FiberPhotometryResponseSeriesBaselineSignal
+    description: Slow-drift baseline of the dopamine signal estimated with a very low-frequency low-pass filter (~0.0005 Hz).
+    unit: V
+    fiber_photometry_table_region: [sig_ain01, sig_ain02, sig_ain03, sig_ain04]
+    fiber_photometry_table_region_description: PLACEHOLDER
+
+  baseline_corr_iso_series:
+    name: FiberPhotometryResponseSeriesBaselineCorrectedIsosbestic
+    description: Baseline-corrected isosbestic signal (filtered_iso − baseline_iso).
+    unit: V
+    fiber_photometry_table_region: [iso_ain01, iso_ain02, iso_ain03, iso_ain04]
+    fiber_photometry_table_region_description: PLACEHOLDER
+
+  baseline_corr_lig_series:
+    name: FiberPhotometryResponseSeriesBaselineCorrectedSignal
+    description: Baseline-corrected dopamine signal (filtered_lig − baseline_lig).
+    unit: V
+    fiber_photometry_table_region: [sig_ain01, sig_ain02, sig_ain03, sig_ain04]
+    fiber_photometry_table_region_description: PLACEHOLDER
+
+  fitted_baseline_fband_iso_series:
+    name: FiberPhotometryResponseSeriesFittedFreqBandBaselineIsosbestic
+    description: >-
+      Frequency-band fit of the isosbestic signal (0–0.5 Hz, 0.5–5 Hz, >5 Hz bands)
+      used for motion artifact correction in the alternative ΔF/F.
+    unit: V
+    fiber_photometry_table_region: [iso_ain01, iso_ain02, iso_ain03, iso_ain04]
+    fiber_photometry_table_region_description: PLACEHOLDER
+
+  dff_series:
+    name: FiberPhotometryResponseSeriesDFF
+    description: >-
+      Isosbestic-corrected ΔF/F: 100 × (filtered_lig − fitted_iso) / fitted_iso.
+      Leading/trailing NaN values are filter-initialization artifacts.
+    unit: a.u.
+    fiber_photometry_table_region: [sig_ain01, sig_ain02, sig_ain03, sig_ain04]
+    fiber_photometry_table_region_description: PLACEHOLDER
+
+  dff_baseline_fband_series:
+    name: FiberPhotometryResponseSeriesDFFFreqBandCorrected
+    description: >-
+      Alternative ΔF/F using a frequency-band decomposition fit of the isosbestic
+      signal instead of a single linear regression for motion-artifact correction.
+    unit: a.u.
     fiber_photometry_table_region: [sig_ain01, sig_ain02, sig_ain03, sig_ain04]
     fiber_photometry_table_region_description: PLACEHOLDER
