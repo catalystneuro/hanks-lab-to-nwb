@@ -1,0 +1,22 @@
+# Behavior camera metadata — shared across all sessions.
+# Camera is triggered frame-by-frame by the Doric system via DIO04, so frame
+# timestamps are derived from DIO04 rising edges in the Doric clock.
+# TODO: confirm exact camera model and lens with the lab.
+
+Devices:
+  behavior_camera:
+    name: BehaviorCamera
+    description: >-
+      Camera recording animal behavior during fiber photometry sessions.
+      Triggered frame-by-frame by the Doric acquisition system via DIO04.
+
+Behavior:
+  ExternalVideos:
+    behavior_video:
+      name: BehaviorVideo
+      description: >-
+        Top-down video of rat behavior during the task session.
+        Frame timestamps are derived from DIO04 rising edges in the Doric clock
+        and are aligned to the same reference as the fiber photometry data.
+      unit: Frames
+      device_metadata_key: behavior_camera
