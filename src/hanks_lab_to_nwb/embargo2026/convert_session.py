@@ -79,9 +79,12 @@ def session_to_nwb(
     sig_streams = _fp_yaml["FiberPhotometry"]["signal_series"]["stream_names"]
 
     doric_path = str(data_dir_path / f"Session_{session_id}.doric")
+    sess_data_path = str(data_dir_path / f"sess_data_{session_id}.pkl")
+    fp_data_path = str(data_dir_path / f"fp_data_{session_id}.pkl")
     source_data = dict(
         DoricFPIsosbestic=dict(file_path=doric_path, stream_names=iso_streams, metadata_key="isosbestic_series"),
         DoricFPSignal=dict(file_path=doric_path, stream_names=sig_streams, metadata_key="signal_series"),
+        Behavior=dict(file_path=sess_data_path, fp_data_path=fp_data_path),
     )
     conversion_options = dict(
         DoricFPIsosbestic=dict(stub_test=stub_test),
@@ -127,7 +130,7 @@ def session_to_nwb(
 
 
 if __name__ == "__main__":
-    session_id = 119974
+    session_id = 119247
     data_dir_path = Path("/Users/weian/source_data/hanks-lab/For Catalyst Neuro")
     output_dir_path = Path("/Users/weian/catalystneuro/hanks-lab-to-nwb/nwb_output")
     stub_test = False

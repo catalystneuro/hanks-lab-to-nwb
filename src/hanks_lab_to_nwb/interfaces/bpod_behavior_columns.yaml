@@ -1,0 +1,252 @@
+# BPod behavior column configuration for BpodBehaviorInterface.
+#
+# The interface auto-discovers all DataFrame columns and infers their NWB
+# dtype from the pandas dtype and first non-null value. This file only carries
+# the things that cannot be inferred from the data:
+#
+#   events            — animal-triggered port contacts → bpod_events table
+#   actions           — machine-triggered outputs     → bpod_actions table
+#   states_to_skip    — state names to exclude from bpod_states
+#   excluded_columns  — DataFrame columns stored in NWB metadata instead of trials
+#
+# Unmapped events/actions: any Bpod event name found in the data that is NOT
+# listed under `events:` or `actions:` below is still written to
+# nwbfile.acquisition["bpod_events"], with value="Unknown" — it is never
+# silently dropped. A warning is logged at conversion time listing every such
+# name. To give one a proper classification and value, add it under `events:`
+# (animal-triggered, e.g. port pokes) or `actions:` (machine-triggered, e.g.
+# BNC lines, global timers, conditions) below, with its value string
+# (e.g. In/Out/On/Off/Expired/End).
+#   columns           — per-column overrides (all fields optional):
+#       abs_time          Override the name-based abs_time detection (true/false).
+#                         By default the interface treats any column whose name
+#                         contains "time" and does not start with "rel_" as a
+#                         Bpod trial-relative timestamp and applies
+#                         + trial_start_ts[i] → Doric-clock seconds.
+#                         Use abs_time: false to suppress this for a column that
+#                         happens to have "time" in its name but is not a timestamp.
+#       dtype             Override inferred dtype. Use when the DataFrame
+#                         representation varies across sessions — e.g. a column
+#                         that is a plain float when n_tones=1 but a list when
+#                         n_tones>1 should be forced to list_abs_time/list_float
+#                         so the NWB schema is consistent across all sessions.
+#                         Valid values: bool, int, float, abs_time,
+#                                       str, list_str, list_float, list_abs_time
+#       none_value        Fill value for None (int default 0, str default "none").
+#       description       Stored as the NWB column description. Defaults to
+#                         "no description" — update here rather than in code.
+#
+# To add a new column: just leave it out entirely. The interface will auto-add
+# it with an inferred type and "no description". Add an entry here only if you
+# need a dtype override, a none_value, or a description.
+
+# ── Bpod actions: machine-triggered outputs → bpod_actions (EventsTable) ─────
+# BNC TTLs, condition firings, global timers — produced by the state machine,
+# not by the animal. Stored in nwb.acquisition["bpod_actions"].
+actions:
+  BNC1High: "On"
+  BNC1Low: "Off"
+  Condition1: "On"
+  GlobalTimer1_End: "End"
+  GlobalTimer2_End: "End"
+  GlobalTimer3_End: "End"
+  Tup: "Expired"
+# ── Bpod events: animal-triggered port contacts → bpod_events (EventsTable) ──
+# Port entries and exits produced by the animal. Stored in
+# nwb.acquisition["bpod_events"].
+events:
+  Port1In:          "In"
+  Port1Out:         "Out"
+  Port2In:          "In"
+  Port2Out:         "Out"
+  Port3In:          "In"
+  Port3Out:         "Out"
+
+# ── Bpod states to exclude from bpod_states TimeIntervals ────────────────────
+# GenerateTrialBit1–15 encode the trial number as a 15-bit TTL signal for
+# Doric synchronisation — not behavioral states.
+states_to_skip:
+  - GenerateTrialBit1
+  - GenerateTrialBit2
+  - GenerateTrialBit3
+  - GenerateTrialBit4
+  - GenerateTrialBit5
+  - GenerateTrialBit6
+  - GenerateTrialBit7
+  - GenerateTrialBit8
+  - GenerateTrialBit9
+  - GenerateTrialBit10
+  - GenerateTrialBit11
+  - GenerateTrialBit12
+  - GenerateTrialBit13
+  - GenerateTrialBit14
+  - GenerateTrialBit15
+
+# ── Columns excluded from trials (stored in NWB metadata or redundant) ────────
+excluded_columns:
+  - sessid        # → NWBFile.session_id
+  - subjid        # → NWBFile.subject.subject_id
+  - sessiondate   # → session_start_time (date component)
+  - starttime     # → session_start_time (time component)
+  - protocol      # → session_description / keywords
+  - trial         # → implicit trials table row index
+  - trialtime     # wall-clock DB timestamp; different clock from Doric — misleading
+  - parsed_events # fully represented by bpod_states + bpod_events
+
+# ── Per-column overrides ──────────────────────────────────────────────────────
+columns:
+
+  # ── Absolute event times ─────────────────────────────────────────────────────
+  # These columns all contain "time" in their name → automatically treated as
+  # Bpod trial-relative timestamps and converted to Doric-clock seconds.
+  # Only descriptions are listed here; no abs_time flag needed.
+  cport_on_time:
+    description: "Center port LED onset, Doric-clock seconds."
+  cpoke_in_time:
+    description: "Center port entry, Doric-clock seconds."
+  stim_start_time:
+    description: "Stimulus onset, Doric-clock seconds."
+  response_cue_time:
+    description: "Response cue onset (end of delay), Doric-clock seconds."
+  cpoke_out_time:
+    description: "Center port exit, Doric-clock seconds."
+  response_time:
+    description: "Side port entry (choice made), Doric-clock seconds."
+  reward_time:
+    description: "Reward delivery onset, Doric-clock seconds."
+  cue_start_time:
+    description: "Response cue start time, Doric-clock seconds."
+  cue_end_time:
+    description: "Response cue end time, Doric-clock seconds."
+
+  # Per-tone times: dtype override forces list storage so the schema is
+  # consistent whether n_tones=1 (scalar in DataFrame) or n_tones>1 (list).
+  # abs_time is inferred from the "times" substring; only dtype needs overriding.
+  abs_tone_start_times:
+    dtype: list_abs_time
+    description: "Tone onset(s), Doric-clock seconds, one element per tone."
+  abs_tone_end_times:
+    dtype: list_abs_time
+    description: "Tone offset(s), Doric-clock seconds, one element per tone."
+  rel_tone_start_times:
+    dtype: list_float
+    description: "Tone onset(s) relative to stimulus onset (seconds), one element per tone."
+  rel_tone_end_times:
+    dtype: list_float
+    description: "Tone offset(s) relative to stimulus onset (seconds), one element per tone."
+  tone_db_offsets:
+    dtype: list_float
+    description: "Per-tone dB offset from baseline sound level, one element per tone."
+
+  # ── none_value overrides ────────────────────────────────────────────────────
+  block_num:
+    none_value: -1
+    description: "Block number within the session."
+  block_trial:
+    none_value: -1
+    description: "Trial index within the current block (1-indexed)."
+
+  # ── Descriptions for commonly analysed columns ──────────────────────────────
+  # Remove or leave blank to use "no description". Add new entries freely.
+  hit:
+    description: "True if the animal made a valid response within the response window."
+  bail:
+    description: "True if the animal withdrew from center port before the response cue."
+  reward:
+    description: "Reward volume delivered (µL); 0 if unrewarded."
+  choice:
+    description: "Side the animal chose: 'left', 'right', or 'none'."
+  RT:
+    description: "Reaction time from response cue to side-port entry (seconds)."
+  rewarded:
+    description: "True if reward was delivered on this trial."
+  chose_left:
+    description: "True if the animal chose the left port."
+  chose_right:
+    description: "True if the animal chose the right port."
+  rigid:
+    description: "Rig ID where the session was run."
+  startstage:
+    description: "Training stage number at session start."
+  stage_complete:
+    description: "True if the training-stage criterion was met on this trial."
+  trial_started:
+    description: "True if the Bpod state machine actually ran on this trial."
+  cpoke_in_latency:
+    description: "Time from trial start to center-port entry (seconds)."
+  cpoke_out_latency:
+    description: "Duration of the center-port occupancy (seconds)."
+  next_cpoke_in_latency:
+    description: "Time from the current trial start to center-port entry on the following trial (seconds)."
+  switch:
+    description: "True if the animal switched its choice relative to the previous trial."
+  stay:
+    description: "True if the animal repeated its choice from the previous trial."
+  incongruent:
+    description: "True if this trial's stimulus category is incongruent with the previous trial's."
+  next_switch:
+    description: "True if the animal will switch its choice on the following trial."
+  next_stay:
+    description: "True if the animal will stay with its choice on the following trial."
+  prev_choice:
+    description: "Choice on the previous trial: 'left', 'right', or 'none'."
+  next_choice:
+    description: "Choice on the following trial: 'left', 'right', or 'none'."
+  n_tones:
+    description: "Number of tones presented during the stimulus window."
+  stim_dur:
+    description: "Stimulus window duration (seconds)."
+  tone_info:
+    description: "Tone category or categories presented, one element per tone."
+  correct_port:
+    description: "Side port corresponding to the task-correct response: 'left' or 'right'."
+  relevant_tone_info:
+    description: "The task-relevant tone category: 'high' or 'low'."
+  relevant_tone_port:
+    description: "Side port paired with the relevant tone category: 'left' or 'right'."
+  prev_tone_info:
+    description: "Tone category heard on the previous trial."
+  next_tone_info:
+    description: "Tone category to be presented on the following trial."
+  prev_correct_port:
+    description: "Correct side port on the previous trial: 'left' or 'right'."
+  next_correct_port:
+    description: "Correct side port on the following trial: 'left' or 'right'."
+  p_reward_left:
+    description: "Reward probability of the left port on this trial."
+  p_reward_right:
+    description: "Reward probability of the right port on this trial."
+  high_port:
+    description: "Side with the higher reward probability: 'left' or 'right'."
+  high_side:
+    description: "Side with the higher reward probability (alternative name for high_port)."
+  chose_high:
+    description: "True if the animal chose the high-probability port."
+  chose_prev_high:
+    description: "True if the animal chose the side that had the higher probability on the previous trial."
+  prev_high_side:
+    description: "Side with the higher reward probability on the previous trial."
+  forced_choice:
+    description: "True if this was a forced-choice trial (only one port active)."
+  forced_hit:
+    description: "True if the animal made a hit on a forced-choice trial."
+  viol:
+    description: "True if the trial was a protocol violation (e.g. premature center-port exit)."
+  block_prob:
+    description: "Reward probability of the chosen port for the current block."
+  epoch_schedule:
+    description: "Volatility epoch schedule name for this block."
+  epoch_label:
+    description: "Volatility epoch label for this block."
+  trial_length:
+    description: "Total trial duration (seconds)."
+  response_port:
+    description: "Available response ports on this trial, one element per port."
+  side_prob:
+    description: "Reward probabilities as a string 'left%/right%' (e.g. '10/50')."
+  choice_prob:
+    description: "Reward probability of the chosen side on this trial."
+  choice_block_prob:
+    description: "Reward probability of chosen side with block context (human-readable string)."
+  choice_prev_prob:
+    description: "Reward probability of the previously chosen side."
