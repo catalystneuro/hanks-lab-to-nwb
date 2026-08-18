@@ -28,7 +28,7 @@ Dopamine signals recorded simultaneously from up to 4 brain regions via Doric FP
 |--------|--------|-------------|-----------|
 | FP raw (LockIn) | Doric HDF5 `.doric` | `Session_{sessid}.doric` | `DoricFiberPhotometryInterface` |
 | FP processed (dFF) | Python pickle `.pkl` | `fp_data_{sessid}.pkl` | `ProcessedFiberPhotometryInterface` (follow-up PR) |
-| Behavioral data | Python pickle `.pkl` | `sess_data_{sessid}.pkl` | `BanditBehaviorInterface` / `WMBehaviorInterface` (follow-up PR) |
+| Behavioral data | Python pickle `.pkl` | `sess_data_{sessid}.pkl` | `BpodBehaviorInterface` (both tasks, protocol auto-detected) |
 | Video | `.mp4` | `mov_{sessid}.mp4` | `ExternalVideoInterface` (follow-up PR) |
 
 ---
@@ -232,10 +232,27 @@ Pre-trial baseline (~12–15 s) has positive timestamps; first trial at `trial_s
 - `FiberPhotometryResponseSeries` in `processing["ophys"]`: dFF signals (from pkl) — follow-up PR
 - `OpticalFiber` with `FiberInsertion` per implanted region (AP/ML/DV from pkl)
 
-### Behavior → trials table (follow-up PR)
-- `nwbfile.trials`: one row per trial, all scalar event times and outcomes
-- Bandit: block structure, reward probabilities, epoch columns
-- WM: tone timing, tone category, delay, correct port columns
+### Behavior → core NWB types (`BpodBehaviorInterface`)
+
+Uses only core pynwb types (no ndx-structured-behavior) to avoid a type
+collision: pynwb 4.0 added `EventsTable` to the core namespace, which conflicts
+with ndx-sb 0.1.0's own `EventsTable` definition and breaks `TaskRecording`'s
+type check. See the TODO in `bpod_behavior_interface.py` for switching back once
+ndx-sb is fixed.
+
+- `nwbfile.intervals["bpod_states"]` (`TimeIntervals`): one row per state occurrence,
+  columns `start_time`, `stop_time`, `state_name`
+- `nwbfile.acquisition["bpod_events"]` (`pynwb.event.EventsTable`): one row per event,
+  columns `timestamp`, `annotation` (event name), `value`. Event/action names not
+  classified in `bpod_behavior_columns.yaml` are still written here with
+  `value="Unknown"` (never silently dropped) and logged as a warning at conversion
+  time, so unclassified names surface for review instead of disappearing.
+- `nwbfile.trials` (`TimeIntervals`): one row per trial, all scalar event times and outcomes
+  - Protocol auto-detected from `protocol` column → adds task-specific columns
+  - All event times converted: Bpod trial-relative → Doric-clock absolute
+    via `trial_start_ts` from `fp_data_{sessid}.pkl`
+  - Bandit: block structure, reward probabilities, epoch columns
+  - WM: tone timing, tone category, delay, correct port columns
 
 ### Video → external reference (follow-up PR)
 - `ImageSeries(external_file=[...])` pointing to `mov_{sessid}.mp4`
@@ -248,6 +265,6 @@ Pre-trial baseline (~12–15 s) has positive timestamps; first trial at `trial_s
 - [x] Phase 2: Data inspection
 - [x] Phase 3: Metadata
 - [x] Phase 4: Synchronization analysis
-- [ ] Phase 5: Code generation
+- [x] Phase 5: Code generation (FP raw + BPod behavior)
 - [ ] Phase 6: Testing & validation
 - [ ] Phase 7: DANDI upload
