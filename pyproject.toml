@@ -78,7 +78,7 @@ extend-exclude = '''
 [tool.codespell]
 skip = '.git*,*.pdf,*.css'
 check-hidden = true
-ignore-words-list = 'assertin'
+ignore-words-list = 'assertin,lockin'
 
 [tool.ruff]
 
