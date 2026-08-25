@@ -244,23 +244,18 @@ Pre-trial baseline (~12–15 s) has positive timestamps; first trial at `trial_s
 
 ## Open Questions
 
-### Awaiting lab response (email sent 2026-08-17)
+No outstanding questions.
 
-- **Processed signal descriptions** — asked lab to confirm or correct the proposed
-  description for each pkl key (`raw_iso`, `raw_lig`, `filtered_iso`, `filtered_lig`,
-  `fitted_iso`, `baseline_iso`, `baseline_lig`, `baseline_corr_iso`, `baseline_corr_lig`,
-  `fitted_baseline_fband_iso`, `dff_iso`, `dff_iso_baseline_fband`).
-  - **`baseline_iso` / `baseline_lig`**: cutoff listed as ~0.0005 Hz — need to confirm
-    exact value and filter type (Butterworth, moving average, etc.).
-  - **`fitted_baseline_fband_iso` / `dff_iso_baseline_fband`**: need a plain-language
-    description of the frequency-band decomposition step (exact formula/procedure).
+### Resolved
 
-- **Timestamps** — confirmed we use `fp_data["fp_data"]["time"]` (Doric clock decimated
-  30×, ~200 Hz) as timestamps for all 12 processed series. Asked lab to flag if there is
-  a corrected/offset version we should use instead.
+- **Processed signal descriptions** (confirmed by lab 2026-08-25) — all 12 pkl key
+  descriptions confirmed. `fiber_photometry.yaml` updated to match exactly.
 
-- **Series inclusion** — asked whether all 12 series should be published, or if any
-  intermediate steps should be omitted. Default is to include everything for provenance.
+- **Timestamps** (confirmed by lab 2026-08-25) — `fp_data["fp_data"]["time"]` (Doric
+  clock decimated 30×, ~200 Hz) is correct for all 12 processed series; no offset needed.
+
+- **Series inclusion** (confirmed by lab 2026-08-25) — all 12 processed series should
+  be included in NWB.
 
 ---
 
