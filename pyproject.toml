@@ -18,7 +18,7 @@ dependencies = [
   "nwbinspector",
   "ndx-fiber-photometry",
   "ndx-ophys-devices",
-  #"ndx-structured-behavior",
+  "ndx-structured-behavior @ git+https://github.com/rly/ndx-structured-behavior.git@switch_to_core_events_table",
   "opencv-python-headless",
   "matplotlib",
 ]
@@ -95,3 +95,6 @@ fixable = ["ALL"]
 [tool.ruff.lint.isort]
 relative-imports-order = "closest-to-furthest"
 known-first-party = ["hanks_lab_to_nwb"]
+
+[tool.uv.sources]
+ndx-structured-behavior = { path = "../ndx-structured-behavior", editable = true }
