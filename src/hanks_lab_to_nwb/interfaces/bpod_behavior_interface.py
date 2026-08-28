@@ -1,32 +1,25 @@
 """BPod behavioral data interface for Hanks lab sess_data_{sessid}.pkl files.
 
-Uses only core pynwb types to avoid the ndx-structured-behavior / pynwb >= 4.0
-namespace collision (pynwb 4.0 added EventsTable to the core namespace, which
-conflicts with ndx-structured-behavior's own EventsTable definition and breaks TaskRecording's
-type check).
+Uses ndx-structured-behavior to organize behavioral data into typed tables:
+  - StateTypesTable / StatesTable  — one row per state occurrence, FK to state types
+  - EventTypesTable / EventsTable  — one row per animal-triggered event, FK to event types
+  - ActionTypesTable / ActionsTable — one row per machine-triggered output, FK to action types
+  - TrialsTable — one row per trial, DynamicTableRegion links to states/events/actions rows
+  - Task (LabMetaData) — groups the type tables under nwbfile.lab_meta_data["task"]
+  - TaskRecording (NWBDataInterface) — groups the data tables under nwbfile.acquisition["task_recording"]
 
-# TODO: Once ndx-structured-behavior fixes the EventsTable name collision
-# (e.g. by making ndx-structured-behavior's EventsTable subclass pynwb.event.EventsTable),
-# consider switching back to the structured-behavior framework for richer
-# semantics:
-#   - StateTypesTable / StatesTable with DynamicTableRegion FK to state types
-#   - EventTypesTable / EventsTable with DynamicTableRegion FK to event types
-#   - TrialsTable with DynamicTableRegion FKs linking trials to state/event rows
-#   - Task (LabMetaData) grouping the type registries
-#   - TaskRecording (NWBDataInterface) grouping the data tables
+All timestamps are Doric fiber-photometry clock seconds, converted from Bpod
+trial-relative seconds via ``trial_start_ts`` in ``fp_data_{sessid}.pkl``.
 
-All trial columns are auto-discovered from the DataFrame. Configuration that
-cannot be inferred from the data (excluded columns, event/action capture rules,
-dtype overrides, optional descriptions) lives in bpod_behavior_columns.yaml in
-the same directory.
+Configuration that cannot be inferred from the data (excluded columns, event/action
+classification, dtype overrides, descriptions) lives in bpod_behavior_columns.yaml
+in the same directory.
 
-Bpod trial-relative → Doric-clock conversion is detected by column name:
-any column whose name contains the substring "time" and does not start with
-"rel_" is treated as a Bpod trial-relative timestamp and converted via
-``+ trial_start_ts[i]``.  Columns starting with "rel_" hold within-trial
-latencies that are already relative to a stimulus event and must not be
-shifted.  Use ``abs_time: true/false`` in the YAML ``columns:`` section to
-override this convention for a specific column.
+**Abs-time naming convention**: any column whose name contains ``"time"`` and does
+not start with ``"rel_"`` is treated as a Bpod trial-relative timestamp and converted
+via ``+ trial_start_ts[i]`` to Doric-clock seconds. Columns starting with ``"rel_"``
+hold within-trial latencies and are stored as-is. Override per-column with
+``abs_time: true/false`` in the YAML.
 """
 
 from __future__ import annotations
@@ -37,11 +30,21 @@ from pathlib import Path
 
 import numpy as np
 import yaml
+from ndx_structured_behavior import (
+    ActionsTable,
+    ActionTypesTable,
+    EventTypesTable,
+    StatesTable,
+    StateTypesTable,
+    Task,
+    TaskRecording,
+    TrialsTable,
+    add_event,
+    create_events_table,
+)
 from neuroconv.basedatainterface import BaseDataInterface
 from neuroconv.utils import DeepDict
 from pynwb import NWBFile
-from pynwb.epoch import TimeIntervals
-from pynwb.event import EventsTable
 
 _log = logging.getLogger(__name__)
 
@@ -115,11 +118,7 @@ def _infer_col_dtype(series, abs_time: bool = False) -> str:
 
 
 def _resolve_col_spec(col: str, series, col_cfg: dict) -> dict:
-    """Merge per-column YAML config with inferred dtype into a resolved spec.
-
-    abs_time is derived from the column name via _is_abs_time_col; the YAML
-    ``abs_time`` key overrides the name-based inference when explicitly set.
-    """
+    """Merge per-column YAML config with inferred dtype into a resolved spec."""
     abs_time = col_cfg.get("abs_time", _is_abs_time_col(col))
     explicit_dtype = col_cfg.get("dtype")
     dtype = explicit_dtype if explicit_dtype else _infer_col_dtype(series, abs_time=abs_time)
@@ -165,12 +164,7 @@ def _safe_float(val) -> float:
 
 
 def _coerce(spec: dict, v, t0: float = 0.0):
-    """Convert a raw pickle value to its NWB-ready type using a resolved spec.
-
-    List dtypes (list_str, list_float, list_abs_time) return Python lists and
-    require the trial column to be registered with index=True.
-    None or missing values return empty lists for list dtypes.
-    """
+    """Convert a raw pickle value to its NWB-ready type using a resolved spec."""
     dtype = spec["dtype"]
     none_value = spec.get("none_value")
 
@@ -231,36 +225,23 @@ class BpodBehaviorInterface(BaseDataInterface):
     """Behavioral interface for Hanks lab BPod data stored in sess_data_{sessid}.pkl.
 
     Populates:
-    - ``nwbfile.intervals["bpod_states"]``: TimeIntervals — one row per state
-      occurrence, columns start_time, stop_time, state_name.
-    - ``nwbfile.acquisition["bpod_events"]``: pynwb.event.EventsTable — one row
-      per animal-triggered port contact (Port1In/Out, Port2In/Out, Port3In/Out),
-      columns timestamp, annotation, value. Also holds any Bpod event name not
-      listed under ``events:`` or ``actions:`` in bpod_behavior_columns.yaml
-      (value="Unknown", a warning is logged naming them — see that file for
-      where to classify and describe them).
-    - ``nwbfile.acquisition["bpod_actions"]``: pynwb.event.EventsTable — one row
-      per machine-triggered output (BNC TTLs, global timers, conditions),
-      columns timestamp, annotation, value.
-    - ``nwbfile.trials``: TimeIntervals — one row per trial. All DataFrame columns
-      not in ``excluded_columns`` are added automatically; type is inferred from
-      the pandas dtype and first non-null value.
+    - ``nwbfile.lab_meta_data["task"]``: Task — holds StateTypesTable, EventTypesTable,
+      ActionTypesTable, the type registries for all behavioral event/state/action kinds.
+    - ``nwbfile.acquisition["task_recording"]``: TaskRecording — holds StatesTable,
+      EventsTable, ActionsTable with one row per occurrence.
+    - ``nwbfile.trials``: TrialsTable — one row per trial with DynamicTableRegion columns
+      ``states``, ``events``, ``actions`` linking each trial to its rows in the data tables,
+      plus all per-trial DataFrame columns not in ``excluded_columns``.
+
+    **Table organization**:
+    - ``StatesTable``: one row per state occurrence; ``state_type`` DynamicTableRegion → StateTypesTable.
+    - ``EventsTable`` (core pynwb): one row per animal-triggered port contact; ``event_type``
+      DynamicTableRegion → EventTypesTable; ``value`` column holds "In", "Out", or "Unknown".
+    - ``ActionsTable``: one row per machine-triggered output; ``action_type`` DynamicTableRegion
+      → ActionTypesTable; ``value`` column holds "On", "Off", "End", "Expired".
 
     All timestamps are Doric fiber-photometry clock seconds, converted from Bpod
     trial-relative seconds via ``trial_start_ts`` in ``fp_data_{sessid}.pkl``.
-
-    **Abs-time naming convention**: any column whose name contains ``"time"``
-    and does not start with ``"rel_"`` is treated as a Bpod trial-relative
-    timestamp and converted via ``+ trial_start_ts[i]`` to Doric-clock seconds.
-    Columns starting with ``"rel_"`` are within-trial latencies and are stored
-    as-is.  Override per-column with ``abs_time: true/false`` in the YAML.
-
-    Configuration lives in ``bpod_behavior_columns.yaml`` (same directory).
-    YAML entries are needed only for:
-    - ``dtype`` override for columns whose type varies across sessions
-    - ``none_value`` for non-default None fills
-    - ``description`` (defaults to "no description" if absent)
-    - ``abs_time: true/false`` to override the name-based abs_time detection
     """
 
     def __init__(self, file_path: str | Path, fp_data_path: str | Path):
@@ -279,9 +260,12 @@ class BpodBehaviorInterface(BaseDataInterface):
         metadata = super().get_metadata()
         metadata["Behavior"] = dict(
             Device=dict(name="bpod", manufacturer="Sanworks", description="Bpod State Machine r2"),
-            BpodStates=dict(description="Start and stop times of each Bpod state occurrence, Doric-clock seconds."),
-            BpodEvents=dict(description="Timestamps of animal-triggered port contacts (In/Out), Doric-clock seconds."),
-            BpodActions=dict(
+            StateTypesTable=dict(description="Names of the Bpod states in the task."),
+            StatesTable=dict(description="Start and stop times of each Bpod state occurrence, Doric-clock seconds."),
+            EventTypesTable=dict(description="Names of the animal-triggered port contact events."),
+            EventsTable=dict(description="Timestamps of animal-triggered port contacts (In/Out), Doric-clock seconds."),
+            ActionTypesTable=dict(description="Names of the machine-triggered output actions."),
+            ActionsTable=dict(
                 description="Timestamps of machine-triggered outputs (BNC TTLs, global timers, conditions), Doric-clock seconds."
             ),
             TrialsTable=dict(description="Trial start/stop times and behavioral outcomes, Doric-clock seconds."),
@@ -304,12 +288,7 @@ class BpodBehaviorInterface(BaseDataInterface):
     # ── column spec resolution ────────────────────────────────────────────────
 
     def _build_col_specs(self, df) -> dict[str, dict]:
-        """Resolve dtype/description for every trials-table column.
-
-        Returns an ordered dict of {col_name: resolved_spec} for all DataFrame
-        columns that should appear in the trials table (i.e. not excluded and
-        not all-NaN).
-        """
+        """Resolve dtype/description for every TrialsTable column from the DataFrame."""
         specs = {}
         for col in df.columns:
             if col in _EXCLUDED_COLS:
@@ -320,35 +299,12 @@ class BpodBehaviorInterface(BaseDataInterface):
             specs[col] = _resolve_col_spec(col, df[col], col_cfg)
         return specs
 
-    # ── table builders ────────────────────────────────────────────────────────
-
-    def _build_states_table(self, beh_meta: dict, df, trial_start_ts: np.ndarray) -> TimeIntervals:
-        states_table = TimeIntervals(
-            name="bpod_states",
-            description=beh_meta["BpodStates"]["description"],
-        )
-        states_table.add_column("state_name", "Name of the Bpod state.")
-
-        for i, (_, row) in enumerate(df.iterrows()):
-            t0 = trial_start_ts[i]
-            for name, vals in row["parsed_events"]["States"].items():
-                if name in _STATES_TO_SKIP:
-                    continue
-                for start_rel, stop_rel in _decode_state_times(vals):
-                    states_table.add_row(
-                        start_time=float(t0 + start_rel),
-                        stop_time=float(t0 + stop_rel),
-                        state_name=name,
-                    )
-
-        return states_table
+    # ── unmapped event detection ──────────────────────────────────────────────
 
     def _collect_unmapped_event_names(self, df) -> set[str]:
-        """Return Bpod event names present in the data but absent from both
-        ``events:`` and ``actions:`` in bpod_behavior_columns.yaml.
+        """Return Bpod event names present in data but absent from both YAML maps.
 
-        Logs a warning naming them so they can be classified deliberately
-        instead of silently disappearing from the NWB file.
+        Logs a warning so they can be classified deliberately.
         """
         names: set[str] = set()
         for _, row in df.iterrows():
@@ -357,82 +313,154 @@ class BpodBehaviorInterface(BaseDataInterface):
         if unmapped:
             _log.warning(
                 "Bpod event name(s) not listed under `events:` or `actions:` in "
-                "%s: %s. They will be written to nwbfile.acquisition['bpod_events'] "
-                "with value='Unknown' and no description. To classify them properly, "
+                "%s: %s. They will be written to the EventsTable "
+                "with value='Unknown'. To classify them properly, "
                 "add each name under `events:` (animal-triggered) or `actions:` "
-                "(machine-triggered) in that file, with its value string (e.g. In/Out/On/Off).",
+                "(machine-triggered) in that file.",
                 _CFG_PATH.name,
                 sorted(unmapped),
             )
         return unmapped
 
-    def _build_events_table(
-        self, beh_meta: dict, df, trial_start_ts: np.ndarray, unmapped_names: set[str]
-    ) -> EventsTable:
-        events_table = EventsTable(
-            name="bpod_events",
-            description=beh_meta["BpodEvents"]["description"],
+    # ── type table builders ───────────────────────────────────────────────────
+
+    def _build_type_tables(
+        self, beh_meta: dict, df, unmapped_names: set[str]
+    ) -> tuple[StateTypesTable, dict, EventTypesTable, dict, ActionTypesTable, dict]:
+        """Build StateTypesTable, EventTypesTable, ActionTypesTable.
+
+        State types are discovered from the data (only non-skipped state names).
+        Event types include all YAML-defined events plus any unmapped names.
+        Action types include all YAML-defined actions.
+
+        Returns
+        -------
+        (state_types, state_name_to_idx,
+         event_types, event_name_to_idx,
+         action_types, action_name_to_idx)
+        """
+        # State types — discover unique non-skipped state names from data
+        state_types = StateTypesTable(description=beh_meta["StateTypesTable"]["description"])
+        state_name_to_idx: dict[str, int] = {}
+        for _, row in df.iterrows():
+            for name in row["parsed_events"]["States"]:
+                if name not in _STATES_TO_SKIP and name not in state_name_to_idx:
+                    state_name_to_idx[name] = len(state_name_to_idx)
+                    state_types.add_row(state_name=name)
+
+        # Event types — YAML-defined + unmapped (for cross-session consistency)
+        event_types = EventTypesTable(description=beh_meta["EventTypesTable"]["description"])
+        event_name_to_idx: dict[str, int] = {}
+        for name in _EVENT_VALUE_MAP:
+            event_name_to_idx[name] = len(event_name_to_idx)
+            event_types.add_row(event_name=name)
+        for name in sorted(unmapped_names):  # sorted for determinism
+            event_name_to_idx[name] = len(event_name_to_idx)
+            event_types.add_row(event_name=name)
+
+        # Action types — YAML-defined
+        action_types = ActionTypesTable(description=beh_meta["ActionTypesTable"]["description"])
+        action_name_to_idx: dict[str, int] = {}
+        for name in _ACTION_VALUE_MAP:
+            action_name_to_idx[name] = len(action_name_to_idx)
+            action_types.add_row(action_name=name)
+
+        return (state_types, state_name_to_idx, event_types, event_name_to_idx, action_types, action_name_to_idx)
+
+    # ── data table population ─────────────────────────────────────────────────
+
+    def _populate_data_tables(
+        self,
+        beh_meta: dict,
+        df,
+        trial_start_ts: np.ndarray,
+        state_types: StateTypesTable,
+        state_name_to_idx: dict,
+        event_types: EventTypesTable,
+        event_name_to_idx: dict,
+        action_types: ActionTypesTable,
+        action_name_to_idx: dict,
+    ) -> tuple[StatesTable, object, ActionsTable, list, list, list]:
+        """Build and populate StatesTable, EventsTable, ActionsTable in one pass.
+
+        Returns (states_table, events_table, actions_table,
+                 trial_state_indices, trial_event_indices, trial_action_indices)
+        where ``trial_*_indices[i]`` is a list of row indices into the corresponding
+        table that belong to trial ``i``.
+        """
+        states_table = StatesTable(
+            description=beh_meta["StatesTable"]["description"],
+            state_types_table=state_types,
         )
-        events_table.add_column(
-            name="value",
-            description="Value of the event (e.g. In, Out, On, Off, Expired, End, Unknown).",
+        events_table = create_events_table(
+            event_types_table=event_types,
+            description=beh_meta["EventsTable"]["description"],
+            name="events",
         )
+        actions_table = ActionsTable(
+            description=beh_meta["ActionsTable"]["description"],
+            action_types_table=action_types,
+        )
+
+        trial_state_indices: list[list[int]] = []
+        trial_event_indices: list[list[int]] = []
+        trial_action_indices: list[list[int]] = []
+        state_row = event_row = action_row = 0
 
         for i, (_, row) in enumerate(df.iterrows()):
             t0 = trial_start_ts[i]
-            for name, raw_ts in row["parsed_events"]["Events"].items():
-                if name in _EVENT_VALUE_MAP:
-                    value = _EVENT_VALUE_MAP[name]
-                elif name in unmapped_names:
-                    value = "Unknown"
-                else:
+            s_rows: list[int] = []
+            e_rows: list[int] = []
+            a_rows: list[int] = []
+
+            # States
+            for name, vals in row["parsed_events"]["States"].items():
+                if name in _STATES_TO_SKIP:
                     continue
-                for ts_rel in _to_list(raw_ts):
-                    events_table.add_event(
-                        timestamp=float(t0 + ts_rel),
-                        annotation=name,
-                        value=value,
+                for start_rel, stop_rel in _decode_state_times(vals):
+                    states_table.add_row(
+                        state_type=state_name_to_idx[name],
+                        start_time=float(t0 + start_rel),
+                        stop_time=float(t0 + stop_rel),
                     )
+                    s_rows.append(state_row)
+                    state_row += 1
 
-        return events_table
-
-    def _build_actions_table(self, beh_meta: dict, df, trial_start_ts: np.ndarray) -> EventsTable:
-        actions_table = EventsTable(
-            name="bpod_actions",
-            description=beh_meta["BpodActions"]["description"],
-        )
-        actions_table.add_column(
-            name="value",
-            description="Value of the action (e.g. On, Off, End, Expired).",
-        )
-
-        for i, (_, row) in enumerate(df.iterrows()):
-            t0 = trial_start_ts[i]
+            # Events and actions (both sourced from parsed_events["Events"])
             for name, raw_ts in row["parsed_events"]["Events"].items():
-                if name not in _ACTION_VALUE_MAP:
-                    continue
-                for ts_rel in _to_list(raw_ts):
-                    actions_table.add_event(
-                        timestamp=float(t0 + ts_rel),
-                        annotation=name,
-                        value=_ACTION_VALUE_MAP[name],
-                    )
+                if name in event_name_to_idx:
+                    value = _EVENT_VALUE_MAP.get(name, "Unknown")
+                    for ts_rel in _to_list(raw_ts):
+                        add_event(
+                            events_table,
+                            event_type=event_name_to_idx[name],
+                            timestamp=float(t0 + ts_rel),
+                            value=value,
+                        )
+                        e_rows.append(event_row)
+                        event_row += 1
+                elif name in action_name_to_idx:
+                    for ts_rel in _to_list(raw_ts):
+                        actions_table.add_row(
+                            action_type=action_name_to_idx[name],
+                            timestamp=float(t0 + ts_rel),
+                            value=_ACTION_VALUE_MAP[name],
+                        )
+                        a_rows.append(action_row)
+                        action_row += 1
 
-        return actions_table
+            trial_state_indices.append(s_rows)
+            trial_event_indices.append(e_rows)
+            trial_action_indices.append(a_rows)
 
-    # ── trials table ──────────────────────────────────────────────────────────
-
-    def _register_trial_columns(self, nwbfile: NWBFile, col_specs: dict) -> None:
-        for name, spec in col_specs.items():
-            nwbfile.add_trial_column(
-                name,
-                spec["description"],
-                index=spec["dtype"] in _LIST_DTYPES,
-            )
-
-    def _build_trial_row(self, i: int, row, trial_start_ts: np.ndarray, col_specs: dict) -> dict:
-        t0 = float(trial_start_ts[i])
-        return {col: _coerce(spec, row[col], t0=t0) for col, spec in col_specs.items()}
+        return (
+            states_table,
+            events_table,
+            actions_table,
+            trial_state_indices,
+            trial_event_indices,
+            trial_action_indices,
+        )
 
     # ── main entry point ──────────────────────────────────────────────────────
 
@@ -442,21 +470,79 @@ class BpodBehaviorInterface(BaseDataInterface):
 
         unmapped_names = self._collect_unmapped_event_names(df)
 
-        nwbfile.add_time_intervals(self._build_states_table(beh_meta, df, trial_start_ts))
-        nwbfile.add_acquisition(self._build_events_table(beh_meta, df, trial_start_ts, unmapped_names))
-        nwbfile.add_acquisition(self._build_actions_table(beh_meta, df, trial_start_ts))
+        # Build type registries
+        (
+            state_types,
+            state_name_to_idx,
+            event_types,
+            event_name_to_idx,
+            action_types,
+            action_name_to_idx,
+        ) = self._build_type_tables(beh_meta, df, unmapped_names)
 
+        # Build and populate data tables, tracking per-trial row indices
+        (
+            states_table,
+            events_table,
+            actions_table,
+            trial_state_indices,
+            trial_event_indices,
+            trial_action_indices,
+        ) = self._populate_data_tables(
+            beh_meta,
+            df,
+            trial_start_ts,
+            state_types,
+            state_name_to_idx,
+            event_types,
+            event_name_to_idx,
+            action_types,
+            action_name_to_idx,
+        )
+
+        # Task (LabMetaData) groups the type registries
+        task = Task(
+            event_types=event_types,
+            state_types=state_types,
+            action_types=action_types,
+        )
+        nwbfile.add_lab_meta_data(task)
+
+        # TaskRecording (NWBDataInterface) groups the data tables
+        recording = TaskRecording(events=events_table, states=states_table, actions=actions_table)
+        nwbfile.add_acquisition(recording)
+
+        # TrialsTable with DynamicTableRegion links to states/events/actions
         col_specs = self._build_col_specs(df)
-        self._register_trial_columns(nwbfile, col_specs)
+        trials = TrialsTable(
+            description=beh_meta["TrialsTable"]["description"],
+            states_table=states_table,
+            events_table=events_table,
+            actions_table=actions_table,
+        )
+
+        # Pre-register per-trial columns with descriptions before adding rows
+        for name, spec in col_specs.items():
+            trials.add_column(
+                name=name,
+                description=spec["description"],
+                index=spec["dtype"] in _LIST_DTYPES,
+            )
 
         for i, (_, row) in enumerate(df.iterrows()):
             t0 = float(trial_start_ts[i])
             t1 = float(trial_start_ts[i + 1]) if i + 1 < len(trial_start_ts) else t0
-            nwbfile.add_trial(
+            extra_cols = {col: _coerce(spec, row[col], t0=t0) for col, spec in col_specs.items()}
+            trials.add_row(
                 start_time=t0,
                 stop_time=t1,
-                **self._build_trial_row(i, row, trial_start_ts, col_specs),
+                states=trial_state_indices[i],
+                events=trial_event_indices[i],
+                actions=trial_action_indices[i],
+                **extra_cols,
             )
+
+        nwbfile.trials = trials
 
         if "Device" in beh_meta:
             nwbfile.create_device(**beh_meta["Device"])
