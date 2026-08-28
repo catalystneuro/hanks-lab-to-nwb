@@ -232,27 +232,29 @@ Pre-trial baseline (~12–15 s) has positive timestamps; first trial at `trial_s
 - `FiberPhotometryResponseSeries` in `processing["ophys"]`: dFF signals (from pkl) — follow-up PR
 - `OpticalFiber` with `FiberInsertion` per implanted region (AP/ML/DV from pkl)
 
-### Behavior → core NWB types (`BpodBehaviorInterface`)
+### Behavior → ndx-structured-behavior (`BpodBehaviorInterface`)
 
-Uses only core pynwb types (no ndx-structured-behavior) to avoid a type
-collision: pynwb 4.0 added `EventsTable` to the core namespace, which conflicts
-with ndx-sb 0.1.0's own `EventsTable` definition and breaks `TaskRecording`'s
-type check. See the TODO in `bpod_behavior_interface.py` for switching back once
-ndx-sb is fixed.
+Uses ndx-structured-behavior 0.2.0 (installed from `../ndx-structured-behavior` editable,
+via `[tool.uv.sources]` in pyproject.toml). The 0.2.0 release removes the `EventsTable`
+name collision with pynwb ≥ 4.0 by re-using the core namespace type.
 
-- `nwbfile.intervals["bpod_states"]` (`TimeIntervals`): one row per state occurrence,
-  columns `start_time`, `stop_time`, `state_name`
-- `nwbfile.acquisition["bpod_events"]` (`pynwb.event.EventsTable`): one row per event,
-  columns `timestamp`, `annotation` (event name), `value`. Event/action names not
-  classified in `bpod_behavior_columns.yaml` are still written here with
-  `value="Unknown"` (never silently dropped) and logged as a warning at conversion
-  time, so unclassified names surface for review instead of disappearing.
-- `nwbfile.trials` (`TimeIntervals`): one row per trial, all scalar event times and outcomes
-  - Protocol auto-detected from `protocol` column → adds task-specific columns
+**NWB structure:**
+- `nwbfile.lab_meta_data["task"]` (`Task`): type registries
+  - `StateTypesTable`: unique state names discovered from data
+  - `EventTypesTable`: event names from `bpod_behavior_columns.yaml events:` + unmapped
+  - `ActionTypesTable`: action names from `bpod_behavior_columns.yaml actions:`
+- `nwbfile.acquisition["task_recording"]` (`TaskRecording`): occurrence tables
+  - `StatesTable`: one row per state occurrence; `state_type` DynamicTableRegion → `StateTypesTable`
+  - `EventsTable` (core pynwb): one row per animal-triggered event; `event_type` DynamicTableRegion
+    → `EventTypesTable`; `value` = "In"/"Out"/"Unknown"
+  - `ActionsTable`: one row per machine-triggered output; `action_type` DynamicTableRegion
+    → `ActionTypesTable`; `value` = "On"/"Off"/"End"/"Expired"
+- `nwbfile.trials` (`TrialsTable`): one row per trial
+  - `states`, `events`, `actions` DynamicTableRegion columns link each trial to its rows
+    in the data tables
+  - All per-trial DataFrame columns added automatically (not in `excluded_columns`)
   - All event times converted: Bpod trial-relative → Doric-clock absolute
     via `trial_start_ts` from `fp_data_{sessid}.pkl`
-  - Bandit: block structure, reward probabilities, epoch columns
-  - WM: tone timing, tone category, delay, correct port columns
 
 ### Video → external reference (follow-up PR)
 - `ImageSeries(external_file=[...])` pointing to `mov_{sessid}.mp4`
