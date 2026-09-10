@@ -22,11 +22,9 @@ hold within-trial latencies and are stored as-is. Override per-column with
 ``abs_time: true/false`` in the YAML.
 """
 
-from __future__ import annotations
-
-import logging
 import pickle
 from pathlib import Path
+from warnings import warn
 
 import numpy as np
 import yaml
@@ -45,8 +43,6 @@ from ndx_structured_behavior import (
 from neuroconv.basedatainterface import BaseDataInterface
 from neuroconv.utils import DeepDict
 from pynwb import NWBFile
-
-_log = logging.getLogger(__name__)
 
 # ── load configuration ────────────────────────────────────────────────────────
 
@@ -311,14 +307,10 @@ class BpodBehaviorInterface(BaseDataInterface):
             names.update(row["parsed_events"]["Events"].keys())
         unmapped = names - set(_EVENT_VALUE_MAP) - set(_ACTION_VALUE_MAP)
         if unmapped:
-            _log.warning(
-                "Bpod event name(s) not listed under `events:` or `actions:` in "
-                "%s: %s. They will be written to the EventsTable "
-                "with value='Unknown'. To classify them properly, "
-                "add each name under `events:` (animal-triggered) or `actions:` "
-                "(machine-triggered) in that file.",
-                _CFG_PATH.name,
-                sorted(unmapped),
+            warn(
+                f"Unmapped Bpod event names found in {self.source_data['file_path']}: "
+                f"{', '.join(sorted(unmapped))}.  Add to bpod_behavior_columns.yaml "
+                "under 'events' or 'actions' to classify them."
             )
         return unmapped
 
@@ -513,7 +505,6 @@ class BpodBehaviorInterface(BaseDataInterface):
         nwbfile.add_acquisition(recording)
 
         # TrialsTable with DynamicTableRegion links to states/events/actions
-        col_specs = self._build_col_specs(df)
         trials = TrialsTable(
             description=beh_meta["TrialsTable"]["description"],
             states_table=states_table,
@@ -522,6 +513,7 @@ class BpodBehaviorInterface(BaseDataInterface):
         )
 
         # Pre-register per-trial columns with descriptions before adding rows
+        col_specs = self._build_col_specs(df)
         for name, spec in col_specs.items():
             trials.add_column(
                 name=name,
