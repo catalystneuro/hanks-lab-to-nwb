@@ -1,11 +1,29 @@
 # Behavior camera metadata — shared across all sessions.
 # Camera is triggered frame-by-frame by the Doric system via DIO04, so frame
 # timestamps are derived from DIO04 rising edges in the Doric clock.
-# TODO: confirm exact camera model and lens with the lab.
+#
+# Hardware fields below are read from the per-session video sidecar
+# mov_{session_id}.doric:
+#   Configurations/BehaviorCamera        @DeviceName = "DMK 33UX290", @SerialNumber = "35320610"
+#   Configurations/BehaviorCamera/Settings  @ResolutionWidth/Height = 1440x1080, @FPS = 30,
+#                                           @Exposure = 0.016 s, @Gain = 18, @TriggerMode = 1
+# TODO: confirm the lens with the lab (not recorded by the acquisition software).
 
+# ── Device models ──────────────────────────────────────────────────────────────
+DeviceModels:
+  behavior_camera_model:
+    name: behavior_camera_model
+    manufacturer: The Imaging Source
+    model_number: DMK 33UX290
+    description: >-
+      Monochrome USB 3.0 industrial camera (Sony IMX290 CMOS sensor) used for behavior video.
+
+# ── Device instances ───────────────────────────────────────────────────────────
 Devices:
   behavior_camera:
     name: BehaviorCamera
+    device_model_metadata_key: behavior_camera_model
+    serial_number: "35320610"
     description: >-
       Camera recording animal behavior during fiber photometry sessions.
       Triggered frame-by-frame by the Doric acquisition system via DIO04.
