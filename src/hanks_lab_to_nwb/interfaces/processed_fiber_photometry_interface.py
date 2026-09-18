@@ -51,10 +51,7 @@ class HanksLabProcessedFiberPhotometryInterface(BaseFiberPhotometryInterface):
     def _get_stream_data(self, *, stream_name: str) -> np.ndarray:
         ain = int(stream_name[-1])
         region = self.ain_to_region[ain]
-        return np.asarray(
-            self.fp_data["fp_data"]["processed_signals"][region][self.signal_key],
-            dtype=np.float64,
-        )
+        return np.asarray(self.fp_data["fp_data"]["processed_signals"][region][self.signal_key])
 
     def _get_stream_timestamps(self, *, stream_name: str) -> np.ndarray:
-        return np.asarray(self.fp_data["fp_data"]["time"], dtype=np.float64)
+        return np.asarray(self.fp_data["fp_data"]["time"])
