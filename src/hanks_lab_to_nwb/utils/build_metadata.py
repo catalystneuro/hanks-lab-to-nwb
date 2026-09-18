@@ -12,7 +12,7 @@ _SERIES_REGION_DESCRIPTION_TEMPLATES = {
     "signal_series": "dLight3.8 dopamine signal rows for {regions_str} at 490 nm (columns follow AIN01-04 order)",
     # Processed series (from fp_data pkl, ~200 Hz)
     "raw_iso_series": "Decimated isosbestic control signal for {regions_str}",
-    "raw_lig_series": "Decimated signal rows for {regions_str} (columns follow AIN01-04 order)",
+    "raw_lig_series": "Decimated dLight3.8 dopamine signal for {regions_str}",
     "filtered_iso_series": "Filtered isosbestic rows for {regions_str} (columns follow AIN01-04 order)",
     "filtered_lig_series": "Filtered signal rows for {regions_str} (columns follow AIN01-04 order)",
     "fitted_iso_series": "Fitted isosbestic rows for {regions_str} (columns follow AIN01-04 order)",
@@ -21,7 +21,7 @@ _SERIES_REGION_DESCRIPTION_TEMPLATES = {
     "baseline_corr_iso_series": "Baseline-corrected isosbestic rows for {regions_str} (columns follow AIN01-04 order)",
     "baseline_corr_lig_series": "Baseline-corrected signal rows for {regions_str} (columns follow AIN01-04 order)",
     "fitted_baseline_fband_iso_series": "Freq-band fitted isosbestic rows for {regions_str} (columns follow AIN01-04 order)",
-    "dff_series": "dLight3.8 dFF rows for {regions_str} (columns follow AIN01-04 order)",
+    "dff_series": "Normalized dLight3.8 dopamine signal (DF/F) for {regions_str}",
     "dff_baseline_fband_series": "Frequency-band corrected DF/F trace for {regions_str}",
 }
 
