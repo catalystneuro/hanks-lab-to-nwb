@@ -75,14 +75,18 @@ def session_to_nwb(
 
     _metadata_dir = Path(__file__).parent / "metadata"
     _fp_yaml = load_dict_from_file(_metadata_dir / "fiber_photometry.yaml")
+    _video_yaml = load_dict_from_file(_metadata_dir / "video.yaml")
     iso_streams = _fp_yaml["FiberPhotometry"]["isosbestic_series"]["stream_names"]
     sig_streams = _fp_yaml["FiberPhotometry"]["signal_series"]["stream_names"]
 
     doric_path = str(data_dir_path / f"Session_{session_id}.doric")
+    video_path = data_dir_path / f"mov_{session_id}.mp4"
     source_data = dict(
         DoricFPIsosbestic=dict(file_path=doric_path, stream_names=iso_streams, metadata_key="isosbestic_series"),
         DoricFPSignal=dict(file_path=doric_path, stream_names=sig_streams, metadata_key="signal_series"),
     )
+    if video_path.exists():
+        source_data["Video"] = dict(file_paths=[video_path], metadata_key="behavior_video", video_name="BehaviorVideo")
     conversion_options = dict(
         DoricFPIsosbestic=dict(stub_test=stub_test),
         DoricFPSignal=dict(stub_test=stub_test),
@@ -106,6 +110,7 @@ def session_to_nwb(
     metadata = dict_deep_update(metadata, task_metadata)
 
     metadata = dict_deep_update(metadata, _fp_yaml, append_list=False)
+    metadata = dict_deep_update(metadata, _video_yaml)
 
     metadata["Subject"]["subject_id"] = subject_id
     metadata["Subject"].update(_SUBJECT_METADATA[int(subject_id)])
