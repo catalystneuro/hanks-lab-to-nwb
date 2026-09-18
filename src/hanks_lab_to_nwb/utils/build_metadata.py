@@ -9,18 +9,18 @@
 _SERIES_REGION_DESCRIPTION_TEMPLATES = {
     # Raw acquisition series (from .doric, ~6024 Hz)
     "isosbestic_series": "Isosbestic control signal for {regions_str} at ~415/420 nm",
-    "signal_series": "dLight3.8 dopamine signal rows for {regions_str} at 490 nm (columns follow AIN01-04 order)",
+    "signal_series": "dLight3.8 dopamine signal for {regions_str} at 490 nm",
     # Processed series (from fp_data pkl, ~200 Hz)
     "raw_iso_series": "Decimated isosbestic control signal for {regions_str}",
     "raw_lig_series": "Decimated dLight3.8 dopamine signal for {regions_str}",
-    "filtered_iso_series": "Filtered isosbestic rows for {regions_str} (columns follow AIN01-04 order)",
-    "filtered_lig_series": "Filtered signal rows for {regions_str} (columns follow AIN01-04 order)",
-    "fitted_iso_series": "Fitted isosbestic rows for {regions_str} (columns follow AIN01-04 order)",
-    "baseline_iso_series": "Baseline isosbestic rows for {regions_str} (columns follow AIN01-04 order)",
-    "baseline_lig_series": "Baseline signal rows for {regions_str} (columns follow AIN01-04 order)",
-    "baseline_corr_iso_series": "Baseline-corrected isosbestic rows for {regions_str} (columns follow AIN01-04 order)",
-    "baseline_corr_lig_series": "Baseline-corrected signal rows for {regions_str} (columns follow AIN01-04 order)",
-    "fitted_baseline_fband_iso_series": "Freq-band fitted isosbestic rows for {regions_str} (columns follow AIN01-04 order)",
+    "filtered_iso_series": "Filtered isosbestic control signal for {regions_str}",
+    "filtered_lig_series": "Filtered dLight3.8 dopamine signal for {regions_str}",
+    "fitted_iso_series": "Fitted isosbestic control signal for {regions_str}",
+    "baseline_iso_series": "Baseline isosbestic control signal for {regions_str}",
+    "baseline_lig_series": "Baseline dLight3.8 dopamine signal for {regions_str}",
+    "baseline_corr_iso_series": "Baseline-corrected isosbestic control signal for {regions_str}",
+    "baseline_corr_lig_series": "Baseline-corrected dLight3.8 dopamine signal for {regions_str}",
+    "fitted_baseline_fband_iso_series": "Frequency-band fitted isosbestic control signal for {regions_str}",
     "dff_series": "Normalized dLight3.8 dopamine signal (DF/F) for {regions_str}",
     "dff_baseline_fband_series": "Frequency-band corrected DF/F trace for {regions_str}",
 }
