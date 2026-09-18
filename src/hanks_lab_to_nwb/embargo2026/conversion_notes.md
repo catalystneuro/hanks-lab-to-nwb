@@ -27,7 +27,7 @@ Dopamine signals recorded simultaneously from up to 4 brain regions via Doric FP
 | Stream | Format | File pattern | Interface |
 |--------|--------|-------------|-----------|
 | FP raw (LockIn) | Doric HDF5 `.doric` | `Session_{sessid}.doric` | `DoricFiberPhotometryInterface` |
-| FP processed (dFF) | Python pickle `.pkl` | `fp_data_{sessid}.pkl` | `ProcessedFiberPhotometryInterface` (follow-up PR) |
+| FP processed (dFF) | Python pickle `.pkl` | `fp_data_{sessid}.pkl` | `ProcessedFiberPhotometryInterface` |
 | Behavioral data | Python pickle `.pkl` | `sess_data_{sessid}.pkl` | `BpodBehaviorInterface` (both tasks, protocol auto-detected) |
 | Video | `.mp4` | `mov_{sessid}.mp4` | `ExternalVideoInterface` (follow-up PR) |
 
@@ -229,7 +229,7 @@ Pre-trial baseline (~12–15 s) has positive timestamps; first trial at `trial_s
 ### FP data → ndx-fiber-photometry
 - `FiberPhotometryTable`: one row per (region × wavelength) channel
 - `FiberPhotometryResponseSeries` in `acquisition`: raw LockIn signals (from .doric)
-- `FiberPhotometryResponseSeries` in `processing["ophys"]`: dFF signals (from pkl) — follow-up PR
+- `FiberPhotometryResponseSeries` in `processing["ophys"]`: dFF signals (from pkl) → `FiberPhotometryResponseSeriesDFF`
 - `OpticalFiber` with `FiberInsertion` per implanted region (AP/ML/DV from pkl)
 
 ### Behavior → ndx-structured-behavior (`BpodBehaviorInterface`)
@@ -258,6 +258,23 @@ name collision with pynwb ≥ 4.0 by re-using the core namespace type.
 
 ### Video → external reference (follow-up PR)
 - `ImageSeries(external_file=[...])` pointing to `mov_{sessid}.mp4`
+
+---
+
+## Open Questions
+
+No outstanding questions.
+
+### Resolved
+
+- **Processed signal descriptions** (confirmed by lab 2026-08-25) — all 12 pkl key
+  descriptions confirmed. `fiber_photometry.yaml` updated to match exactly.
+
+- **Timestamps** (confirmed by lab 2026-08-25) — `fp_data["fp_data"]["time"]` (Doric
+  clock decimated 30×, ~200 Hz) is correct for all 12 processed series; no offset needed.
+
+- **Series inclusion** (confirmed by lab 2026-08-25) — all 12 processed series should
+  be included in NWB.
 
 ---
 

@@ -4,6 +4,27 @@
 # so placeholder scaffold devices don't appear in the NWB file alongside real ones.
 # Allen Mouse Brain Atlas full region names, keyed by lab abbreviation.
 # DLS/DMS are informal subdivisions of the Allen "Caudoputamen" (CP) structure.
+# Description template for each response series' fiber_photometry_table_region_description.
+# {regions_str} is replaced at runtime with the comma-separated region names for this session.
+_SERIES_REGION_DESCRIPTION_TEMPLATES = {
+    # Raw acquisition series (from .doric, ~6024 Hz)
+    "isosbestic_series": "Isosbestic control signal for {regions_str} at ~415/420 nm",
+    "signal_series": "dLight3.8 dopamine signal for {regions_str} at 490 nm",
+    # Processed series (from fp_data pkl, ~200 Hz)
+    "raw_iso_series": "Decimated isosbestic control signal for {regions_str}",
+    "raw_lig_series": "Decimated dLight3.8 dopamine signal for {regions_str}",
+    "filtered_iso_series": "Filtered isosbestic control signal for {regions_str}",
+    "filtered_lig_series": "Filtered dLight3.8 dopamine signal for {regions_str}",
+    "fitted_iso_series": "Fitted isosbestic control signal for {regions_str}",
+    "baseline_iso_series": "Baseline isosbestic control signal for {regions_str}",
+    "baseline_lig_series": "Baseline dLight3.8 dopamine signal for {regions_str}",
+    "baseline_corr_iso_series": "Baseline-corrected isosbestic control signal for {regions_str}",
+    "baseline_corr_lig_series": "Baseline-corrected dLight3.8 dopamine signal for {regions_str}",
+    "fitted_baseline_fband_iso_series": "Frequency-band fitted isosbestic control signal for {regions_str}",
+    "dff_series": "Normalized dLight3.8 dopamine signal (DF/F) for {regions_str}",
+    "dff_baseline_fband_series": "Frequency-band corrected DF/F trace for {regions_str}",
+}
+
 _ATLAS_REGION_NAME = {
     "NAc": "Nucleus accumbens",
     "DLS": "Dorsolateral striatum",
@@ -84,12 +105,8 @@ def patch_fp_metadata_for_session(metadata: dict, ain_to_region: dict, fp_data: 
                 hemisphere=info["side"],
             )
 
-    # 4. Set region-aware descriptions on the two response series.
+    # 4. Set region-aware descriptions on all response series.
     regions = [_ATLAS_REGION_NAME.get(ain_to_region[ain], ain_to_region[ain]) for ain in sorted(ain_to_region)]
     regions_str = ", ".join(regions)
-    fp_meta["isosbestic_series"][
-        "fiber_photometry_table_region_description"
-    ] = f"Isosbestic control from {regions_str} at ~415/420 nm (columns follow AIN01-04 order)"
-    fp_meta["signal_series"][
-        "fiber_photometry_table_region_description"
-    ] = f"dLight3.8 dopamine signal from {regions_str} at 490 nm (columns follow AIN01-04 order)"
+    for meta_key, template in _SERIES_REGION_DESCRIPTION_TEMPLATES.items():
+        fp_meta[meta_key]["fiber_photometry_table_region_description"] = template.format(regions_str=regions_str)
