@@ -20,6 +20,22 @@ _SESSION_AIN_TO_REGION = {
     124949: {1: "NAc", 2: "DMS", 3: "TS", 4: "DLS"},  # subj 238, Bandit
 }
 
+# Processed signal registry: (converter_key, pkl_signal_key, metadata_key)
+_PROCESSED_SIGNALS = [
+    ("ProcessedFP_RawIso", "raw_iso", "raw_iso_series"),
+    ("ProcessedFP_RawLig", "raw_lig", "raw_lig_series"),
+    ("ProcessedFP_FilteredIso", "filtered_iso", "filtered_iso_series"),
+    ("ProcessedFP_FilteredLig", "filtered_lig", "filtered_lig_series"),
+    ("ProcessedFP_FittedIso", "fitted_iso", "fitted_iso_series"),
+    ("ProcessedFP_BaselineIso", "baseline_iso", "baseline_iso_series"),
+    ("ProcessedFP_BaselineLig", "baseline_lig", "baseline_lig_series"),
+    ("ProcessedFP_BaselineCorrIso", "baseline_corr_iso", "baseline_corr_iso_series"),
+    ("ProcessedFP_BaselineCorrLig", "baseline_corr_lig", "baseline_corr_lig_series"),
+    ("ProcessedFP_FittedBaselineFbandIso", "fitted_baseline_fband_iso", "fitted_baseline_fband_iso_series"),
+    ("ProcessedFP_DFF", "dff_iso", "dff_series"),
+    ("ProcessedFP_DFFBaselineFband", "dff_iso_baseline_fband", "dff_baseline_fband_series"),
+]
+
 # session → task-specific metadata YAML (determines session_description and keywords)
 _SESSION_TASK_TYPE = {
     119247: "wm_task",
@@ -80,6 +96,8 @@ def session_to_nwb(
     sig_streams = _fp_yaml["FiberPhotometry"]["signal_series"]["stream_names"]
 
     doric_path = str(data_dir_path / f"Session_{session_id}.doric")
+    fp_pkl_path = str(data_dir_path / f"fp_data_{session_id}.pkl")
+    ain_to_region = _SESSION_AIN_TO_REGION[session_id]
     video_path = data_dir_path / f"mov_{session_id}.mp4"
     source_data = dict(
         DoricFPIsosbestic=dict(file_path=doric_path, stream_names=iso_streams, metadata_key="isosbestic_series"),
@@ -91,6 +109,14 @@ def session_to_nwb(
         DoricFPIsosbestic=dict(stub_test=stub_test),
         DoricFPSignal=dict(stub_test=stub_test),
     )
+    for interface_name, signal_key, meta_key in _PROCESSED_SIGNALS:
+        source_data[interface_name] = dict(
+            file_path=fp_pkl_path,
+            ain_to_region=ain_to_region,
+            signal_key=signal_key,
+            metadata_key=meta_key,
+        )
+        conversion_options[interface_name] = dict(stub_test=stub_test, parent_container="processing/ophys")
 
     converter = HanksLabNWBConverter(source_data=source_data)
     metadata = converter.get_metadata()
@@ -115,7 +141,6 @@ def session_to_nwb(
     metadata["Subject"]["subject_id"] = subject_id
     metadata["Subject"].update(_SUBJECT_METADATA[int(subject_id)])
 
-    ain_to_region = _SESSION_AIN_TO_REGION[session_id]
     with open(data_dir_path / f"fp_data_{session_id}.pkl", "rb") as f:
         fp_data = pickle.load(f)
     patch_fp_metadata_for_session(metadata, ain_to_region, fp_data)
@@ -132,7 +157,7 @@ def session_to_nwb(
 
 
 if __name__ == "__main__":
-    session_id = 119974
+    session_id = 119247
     data_dir_path = Path("/Users/weian/source_data/hanks-lab/For Catalyst Neuro")
     output_dir_path = Path("/Users/weian/catalystneuro/hanks-lab-to-nwb/nwb_output")
     stub_test = False
