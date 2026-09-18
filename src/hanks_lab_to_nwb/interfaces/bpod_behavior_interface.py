@@ -268,6 +268,35 @@ class BpodBehaviorInterface(BaseDataInterface):
         )
         return metadata
 
+    def get_metadata_schema(self) -> dict:
+        """Declare the Behavior keys written by get_metadata().
+
+        ExternalVideoInterface contributes a "Behavior" schema with
+        additionalProperties=False, so these keys must be declared or the merged
+        converter schema rejects them whenever a session also has video.
+        """
+        metadata_schema = super().get_metadata_schema()
+        table_keys = (
+            "StateTypesTable",
+            "StatesTable",
+            "EventTypesTable",
+            "EventsTable",
+            "ActionTypesTable",
+            "ActionsTable",
+            "TrialsTable",
+        )
+        properties = {key: dict(type="object", properties=dict(description=dict(type="string"))) for key in table_keys}
+        properties["Device"] = dict(
+            type="object",
+            properties=dict(
+                name=dict(type="string"),
+                manufacturer=dict(type="string"),
+                description=dict(type="string"),
+            ),
+        )
+        metadata_schema["properties"]["Behavior"] = dict(type="object", properties=properties)
+        return metadata_schema
+
     # ── data loading ──────────────────────────────────────────────────────────
 
     def _load(self):
