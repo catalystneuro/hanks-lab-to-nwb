@@ -75,3 +75,7 @@ Already have: injection coordinates, volume (500 nL), titer
 - **Titer units** **[required]**: lab reported VP/mL — NWB stores VG/mL. Are these
   VP (viral particles) or VG (viral genomes)? Please confirm so we can label correctly.
 - **Injection dates per subject** **[optional]**: not provided
+
+## 6. Fiber Photometry Data Processing
+
+- Ask for schematic diagram of the signal processing steps, it would be nice to add it to the tutorial
