@@ -28,7 +28,7 @@ Dopamine signals recorded simultaneously from up to 4 brain regions via Doric FP
 |--------|--------|-------------|-----------|
 | FP raw (LockIn) | Doric HDF5 `.doric` | `Session_{sessid}.doric` | `DoricFiberPhotometryInterface` |
 | FP processed (dFF) | Python pickle `.pkl` | `fp_data_{sessid}.pkl` | `ProcessedFiberPhotometryInterface` |
-| Behavioral data | Python pickle `.pkl` | `sess_data_{sessid}.pkl` | `BanditBehaviorInterface` / `WMBehaviorInterface` (follow-up PR) |
+| Behavioral data | Python pickle `.pkl` | `sess_data_{sessid}.pkl` | `BpodBehaviorInterface` (both tasks, protocol auto-detected) |
 | Video | `.mp4` | `mov_{sessid}.mp4` | `ExternalVideoInterface` (follow-up PR) |
 
 ---
@@ -232,10 +232,29 @@ Pre-trial baseline (~12–15 s) has positive timestamps; first trial at `trial_s
 - `FiberPhotometryResponseSeries` in `processing["ophys"]`: dFF signals (from pkl) → `FiberPhotometryResponseSeriesDFF`
 - `OpticalFiber` with `FiberInsertion` per implanted region (AP/ML/DV from pkl)
 
-### Behavior → trials table (follow-up PR)
-- `nwbfile.trials`: one row per trial, all scalar event times and outcomes
-- Bandit: block structure, reward probabilities, epoch columns
-- WM: tone timing, tone category, delay, correct port columns
+### Behavior → ndx-structured-behavior (`BpodBehaviorInterface`)
+
+Uses ndx-structured-behavior 0.2.0 (installed from `../ndx-structured-behavior` editable,
+via `[tool.uv.sources]` in pyproject.toml). The 0.2.0 release removes the `EventsTable`
+name collision with pynwb ≥ 4.0 by re-using the core namespace type.
+
+**NWB structure:**
+- `nwbfile.lab_meta_data["task"]` (`Task`): type registries
+  - `StateTypesTable`: unique state names discovered from data
+  - `EventTypesTable`: event names from `bpod_behavior_columns.yaml events:` + unmapped
+  - `ActionTypesTable`: action names from `bpod_behavior_columns.yaml actions:`
+- `nwbfile.acquisition["task_recording"]` (`TaskRecording`): occurrence tables
+  - `StatesTable`: one row per state occurrence; `state_type` DynamicTableRegion → `StateTypesTable`
+  - `EventsTable` (core pynwb): one row per animal-triggered event; `event_type` DynamicTableRegion
+    → `EventTypesTable`; `value` = "In"/"Out"/"Unknown"
+  - `ActionsTable`: one row per machine-triggered output; `action_type` DynamicTableRegion
+    → `ActionTypesTable`; `value` = "On"/"Off"/"End"/"Expired"
+- `nwbfile.trials` (`TrialsTable`): one row per trial
+  - `states`, `events`, `actions` DynamicTableRegion columns link each trial to its rows
+    in the data tables
+  - All per-trial DataFrame columns added automatically (not in `excluded_columns`)
+  - All event times converted: Bpod trial-relative → Doric-clock absolute
+    via `trial_start_ts` from `fp_data_{sessid}.pkl`
 
 ### Video → external reference (follow-up PR)
 - `ImageSeries(external_file=[...])` pointing to `mov_{sessid}.mp4`
@@ -265,6 +284,6 @@ No outstanding questions.
 - [x] Phase 2: Data inspection
 - [x] Phase 3: Metadata
 - [x] Phase 4: Synchronization analysis
-- [ ] Phase 5: Code generation
+- [x] Phase 5: Code generation (FP raw + BPod behavior)
 - [ ] Phase 6: Testing & validation
 - [ ] Phase 7: DANDI upload
