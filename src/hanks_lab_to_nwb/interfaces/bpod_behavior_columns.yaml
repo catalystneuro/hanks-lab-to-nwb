@@ -15,8 +15,19 @@
 # silently dropped. A warning is logged at conversion time listing every such
 # name. To give one a proper classification and value, add it under `events:`
 # (animal-triggered, e.g. port pokes) or `actions:` (machine-triggered, e.g.
-# BNC lines, global timers, conditions) below, with its value string
-# (e.g. In/Out/On/Off/Expired/End).
+# BNC lines, global timers, conditions) below.
+#
+# Each entry maps a raw Bpod name to the type-table name and the value stored
+# on the occurrence row. Two forms are accepted:
+#
+#   Port3In: {event_name: Port3, value: "In"}   # explicit type name + value
+#   Tup: "Expired"                              # shorthand: type name = the key
+#
+# Use the explicit form to collapse the raw Bpod names that encode a thing and
+# an edge in one string (Port3In / Port3Out, BNC1High / BNC1Low) into a single
+# type row whose `value` carries the edge. The type table then names the
+# physical thing (a port, a BNC line) and the raw Bpod name stays recoverable
+# as name + value. Use `action_name:` instead of `event_name:` under `actions:`.
 #   columns           — per-column overrides (all fields optional):
 #       abs_time          Override the name-based abs_time detection (true/false).
 #                         By default the interface treats any column whose name
@@ -44,23 +55,23 @@
 # BNC TTLs, condition firings, global timers — produced by the state machine,
 # not by the animal. Stored in nwb.acquisition["bpod_actions"].
 actions:
-  BNC1High: "On"
-  BNC1Low: "Off"
-  Condition1: "On"
-  GlobalTimer1_End: "End"
-  GlobalTimer2_End: "End"
-  GlobalTimer3_End: "End"
-  Tup: "Expired"
+  BNC1High:         {action_name: BNC1,         value: "On"}
+  BNC1Low:          {action_name: BNC1,         value: "Off"}
+  Condition1:       {action_name: Condition1,   value: "On"}
+  GlobalTimer1_End: {action_name: GlobalTimer1, value: "End"}
+  GlobalTimer2_End: {action_name: GlobalTimer2, value: "End"}
+  GlobalTimer3_End: {action_name: GlobalTimer3, value: "End"}
+  Tup:              {action_name: Tup,          value: "Expired"}
 # ── Bpod events: animal-triggered port contacts → bpod_events (EventsTable) ──
 # Port entries and exits produced by the animal. Stored in
 # nwb.acquisition["bpod_events"].
 events:
-  Port1In:          "In"
-  Port1Out:         "Out"
-  Port2In:          "In"
-  Port2Out:         "Out"
-  Port3In:          "In"
-  Port3Out:         "Out"
+  Port1In:  {event_name: Port1, value: "In"}
+  Port1Out: {event_name: Port1, value: "Out"}
+  Port2In:  {event_name: Port2, value: "In"}
+  Port2Out: {event_name: Port2, value: "Out"}
+  Port3In:  {event_name: Port3, value: "In"}
+  Port3Out: {event_name: Port3, value: "Out"}
 
 # ── Bpod states to exclude from bpod_states TimeIntervals ────────────────────
 # GenerateTrialBit1–15 encode the trial number as a 15-bit TTL signal for
@@ -118,10 +129,19 @@ columns:
     description: "Response cue start time, Doric-clock seconds."
   cue_end_time:
     description: "Response cue end time, Doric-clock seconds."
+  # Present only in some sessions (e.g. 124770, absent in 119247) — the lab's
+  # post-processing emits it for newer sessions. Derived, not independently
+  # measured: it equals cpoke_out_time + 0.3 s on every bail trial.
+  bail_tone_time:
+    description: "Bail tone onset on aborted trials (cpoke_out_time + 0.3 s), Doric-clock seconds."
 
   # Per-tone times: dtype override forces list storage so the schema is
   # consistent whether n_tones=1 (scalar in DataFrame) or n_tones>1 (list).
   # abs_time is inferred from the "times" substring; only dtype needs overriding.
+  # NOTE: every session shared so far has n_tones == 1 on every trial, so these
+  # lists always hold a single element.  Whether ToneCatDelayResp ever presents
+  # n_tones > 1 is an open question for the lab (see conversion_notes.md); the
+  # ragged schema is kept either way so all sessions share one column type.
   abs_tone_start_times:
     dtype: list_abs_time
     description: "Tone onset(s), Doric-clock seconds, one element per tone."
