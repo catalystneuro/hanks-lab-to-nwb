@@ -27,7 +27,6 @@ from pathlib import Path
 from warnings import warn
 
 import numpy as np
-import yaml
 from ndx_structured_behavior import (
     ActionsTable,
     ActionTypesTable,
@@ -41,20 +40,8 @@ from ndx_structured_behavior import (
     create_events_table,
 )
 from neuroconv.basedatainterface import BaseDataInterface
-from neuroconv.utils import DeepDict
+from neuroconv.utils import DeepDict, load_dict_from_file
 from pynwb import NWBFile
-
-# ── load configuration ────────────────────────────────────────────────────────
-
-_CFG_PATH = Path(__file__).parent / "bpod_behavior_columns.yaml"
-with _CFG_PATH.open() as _f:
-    _CFG: dict = yaml.safe_load(_f)
-
-_STATES_TO_SKIP: frozenset[str] = frozenset(_CFG["states_to_skip"])
-_EVENT_VALUE_MAP: dict[str, str] = _CFG["events"]
-_ACTION_VALUE_MAP: dict[str, str] = _CFG["actions"]
-_EXCLUDED_COLS: frozenset[str] = frozenset(_CFG["excluded_columns"])
-_COL_OVERRIDES: dict[str, dict] = _CFG.get("columns", {})
 
 _LIST_DTYPES: frozenset[str] = frozenset({"list_str", "list_float", "list_abs_time"})
 
@@ -73,6 +60,48 @@ def _is_abs_time_col(col: str) -> bool:
     Override per-column with abs_time: true/false in bpod_behavior_columns.yaml.
     """
     return "time" in col and not col.startswith("rel_")
+
+
+# ── event / action map normalization ──────────────────────────────────────────
+
+
+def _normalize_type_value_map(raw_map: dict, name_key: str) -> dict[str, tuple[str, str]]:
+    """Normalize a YAML events/actions map to ``raw_bpod_name -> (type_name, value)``.
+
+    Raw Bpod names encode a thing and an edge in one string (``Port3In`` /
+    ``Port3Out``, ``BNC1High`` / ``BNC1Low``). The mapping form splits them so the
+    type table names the thing and the occurrence row's ``value`` carries the edge::
+
+        Port3In: {event_name: Port3, value: "In"}   -> ("Port3", "In")
+        Tup: "Expired"                              -> ("Tup", "Expired")
+
+    The shorthand string form keeps the raw name as the type name.
+
+    Parameters
+    ----------
+    raw_map :
+        The ``events:`` or ``actions:`` block from the YAML config.
+    name_key :
+        ``"event_name"`` or ``"action_name"`` — the key holding the type name.
+    """
+    normalized: dict[str, tuple[str, str]] = {}
+    for raw_name, entry in raw_map.items():
+        if isinstance(entry, str):
+            normalized[raw_name] = (raw_name, entry)
+            continue
+        if not isinstance(entry, dict):
+            raise ValueError(
+                f"Invalid entry for '{raw_name}': expected a value string or a mapping "
+                f"with '{name_key}' and 'value', got {entry!r}."
+            )
+        missing = {name_key, "value"} - set(entry)
+        if missing:
+            raise ValueError(
+                f"Invalid entry for '{raw_name}': mapping is missing {sorted(missing)}. "
+                f"Expected keys '{name_key}' and 'value'."
+            )
+        normalized[raw_name] = (str(entry[name_key]), str(entry["value"]))
+    return normalized
 
 
 # ── type inference ────────────────────────────────────────────────────────────
@@ -211,7 +240,7 @@ def _coerce(spec: dict, v, t0: float = 0.0):
         return [float(t0 + f)] if not np.isnan(f) else []
 
     raise ValueError(
-        f"Unknown dtype '{dtype}' in {_CFG_PATH.name}. "
+        f"Unknown dtype '{dtype}' in spec '{spec}'. "
         f"Valid values: bool, int, float, abs_time, str, "
         f"list_str, list_float, list_abs_time."
     )
@@ -236,6 +265,12 @@ class BpodBehaviorInterface(BaseDataInterface):
     - ``ActionsTable``: one row per machine-triggered output; ``action_type`` DynamicTableRegion
       → ActionTypesTable; ``value`` column holds "On", "Off", "End", "Expired".
 
+    **Type name vs. value**: the type tables name the physical thing (``Port1``, ``BNC1``)
+    and the occurrence row's ``value`` carries the edge, so the raw Bpod names
+    ``Port1In`` / ``Port1Out`` share one event type and ``BNC1High`` / ``BNC1Low`` share
+    one action type. The raw Bpod name is recoverable as ``name + value``. The split is
+    configured per raw name in bpod_behavior_columns.yaml.
+
     All timestamps are Doric fiber-photometry clock seconds, converted from Bpod
     trial-relative seconds via ``trial_start_ts`` in ``fp_data_{sessid}.pkl``.
     """
@@ -250,6 +285,13 @@ class BpodBehaviorInterface(BaseDataInterface):
             Path to ``fp_data_{sessid}.pkl``. ``trial_start_ts`` converts Bpod
             trial-relative times to Doric-clock absolute seconds.
         """
+        default_configuration = self.get_default_configuration()
+        self._event_map = _normalize_type_value_map(default_configuration["events"], "event_name")
+        self._action_map = _normalize_type_value_map(default_configuration["actions"], "action_name")
+        self._states_to_skip = frozenset(default_configuration["states_to_skip"])
+        self._excluded_columns = frozenset(default_configuration["excluded_columns"])
+        self._column_overrides = default_configuration.get("columns", {})
+
         super().__init__(file_path=str(file_path), fp_data_path=str(fp_data_path))
 
     def get_metadata(self) -> DeepDict:
@@ -297,6 +339,49 @@ class BpodBehaviorInterface(BaseDataInterface):
         metadata_schema["properties"]["Behavior"] = dict(type="object", properties=properties)
         return metadata_schema
 
+    # ── load configuration (events, actions, excluded columns etc.)  ─────────────
+
+    @staticmethod
+    def get_default_configuration() -> dict:
+        """Return the default configuration dict from bpod_behavior_columns.yaml."""
+        default_configuration_path = Path(__file__).parent / "bpod_behavior_columns.yaml"
+        default_configuration = load_dict_from_file(default_configuration_path)
+        return default_configuration
+
+    def register_configuration(self, config: dict) -> None:
+        """Register a configuration dict to override the default YAML config.
+
+        The config dict must have the same structure as bpod_behavior_columns.yaml.
+        Under events/actions each raw Bpod name maps either to a mapping giving the
+        type name and the value, or to a plain value string (type name = the raw name):
+        events:
+            Port1In: {"event_name": "Port1", "value": "In"}
+            Port1Out: {"event_name": "Port1", "value": "Out"}
+        actions:
+            BNC1High: {"action_name": "BNC1", "value": "On"}
+            Tup: "Expired"
+        excluded_columns:
+            - "column_to_exclude_1"
+            - "column_to_exclude_2"
+        columns:
+            column_name_1:
+                description: "Description of column_name_1"
+
+        Parameters
+        ----------
+        config : dict
+            Configuration dictionary with the same structure as bpod_behavior_columns.yaml.
+            Overrides the default configuration loaded from the YAML file.
+        """
+        if not isinstance(config, dict):
+            raise ValueError("Configuration must be a dictionary.")
+        if "events" in config:
+            self._event_map = _normalize_type_value_map(config["events"], "event_name")
+        if "actions" in config:
+            self._action_map = _normalize_type_value_map(config["actions"], "action_name")
+        self._excluded_columns = frozenset(config.get("excluded_columns", list(self._excluded_columns)))
+        self._column_overrides = config.get("columns", self._column_overrides)
+
     # ── data loading ──────────────────────────────────────────────────────────
 
     def _load(self):
@@ -316,11 +401,11 @@ class BpodBehaviorInterface(BaseDataInterface):
         """Resolve dtype/description for every TrialsTable column from the DataFrame."""
         specs = {}
         for col in df.columns:
-            if col in _EXCLUDED_COLS:
+            if col in self._excluded_columns:
                 continue
             if df[col].isna().all():
                 continue
-            col_cfg = _COL_OVERRIDES.get(col, {})
+            col_cfg = self._column_overrides.get(col, {})
             specs[col] = _resolve_col_spec(col, df[col], col_cfg)
         return specs
 
@@ -334,12 +419,13 @@ class BpodBehaviorInterface(BaseDataInterface):
         names: set[str] = set()
         for _, row in df.iterrows():
             names.update(row["parsed_events"]["Events"].keys())
-        unmapped = names - set(_EVENT_VALUE_MAP) - set(_ACTION_VALUE_MAP)
+        unmapped = names - set(self._event_map) - set(self._action_map)
         if unmapped:
             warn(
                 f"Unmapped Bpod event names found in {self.source_data['file_path']}: "
                 f"{', '.join(sorted(unmapped))}.  Add to bpod_behavior_columns.yaml "
-                "under 'events' or 'actions' to classify them."
+                "under 'events' or 'actions' to classify them. "
+                "Or call register_configuration() with a dict containing the new mappings."
             )
         return unmapped
 
@@ -354,6 +440,11 @@ class BpodBehaviorInterface(BaseDataInterface):
         Event types include all YAML-defined events plus any unmapped names.
         Action types include all YAML-defined actions.
 
+        Several raw Bpod names can share one type row — ``Port3In`` and ``Port3Out``
+        both map to the ``Port3`` event type, ``BNC1High`` and ``BNC1Low`` to the
+        ``BNC1`` action type — so the type names are deduplicated here, in YAML order.
+        The returned index maps are keyed by *type* name, not by raw Bpod name.
+
         Returns
         -------
         (state_types, state_name_to_idx,
@@ -365,26 +456,30 @@ class BpodBehaviorInterface(BaseDataInterface):
         state_name_to_idx: dict[str, int] = {}
         for _, row in df.iterrows():
             for name in row["parsed_events"]["States"]:
-                if name not in _STATES_TO_SKIP and name not in state_name_to_idx:
+                if name not in self._states_to_skip and name not in state_name_to_idx:
                     state_name_to_idx[name] = len(state_name_to_idx)
-                    state_types.add_row(state_name=name)
+                    state_types.add_row(state_name=name, check_ragged=False)
 
         # Event types — YAML-defined + unmapped (for cross-session consistency)
         event_types = EventTypesTable(description=beh_meta["EventTypesTable"]["description"])
         event_name_to_idx: dict[str, int] = {}
-        for name in _EVENT_VALUE_MAP:
-            event_name_to_idx[name] = len(event_name_to_idx)
-            event_types.add_row(event_name=name)
+        for type_name, _ in self._event_map.values():
+            if type_name not in event_name_to_idx:
+                event_name_to_idx[type_name] = len(event_name_to_idx)
+                event_types.add_row(event_name=type_name, check_ragged=False)
+        # Add any unmapped names to the event types table so they can be stored even if not classified yet
         for name in sorted(unmapped_names):  # sorted for determinism
-            event_name_to_idx[name] = len(event_name_to_idx)
-            event_types.add_row(event_name=name)
+            if name not in event_name_to_idx:
+                event_name_to_idx[name] = len(event_name_to_idx)
+                event_types.add_row(event_name=name, check_ragged=False)
 
         # Action types — YAML-defined
         action_types = ActionTypesTable(description=beh_meta["ActionTypesTable"]["description"])
         action_name_to_idx: dict[str, int] = {}
-        for name in _ACTION_VALUE_MAP:
-            action_name_to_idx[name] = len(action_name_to_idx)
-            action_types.add_row(action_name=name)
+        for type_name, _ in self._action_map.values():
+            if type_name not in action_name_to_idx:
+                action_name_to_idx[type_name] = len(action_name_to_idx)
+                action_types.add_row(action_name=type_name, check_ragged=False)
 
         return (state_types, state_name_to_idx, event_types, event_name_to_idx, action_types, action_name_to_idx)
 
@@ -434,41 +529,62 @@ class BpodBehaviorInterface(BaseDataInterface):
             e_rows: list[int] = []
             a_rows: list[int] = []
 
-            # States
-            for name, vals in row["parsed_events"]["States"].items():
-                if name in _STATES_TO_SKIP:
-                    continue
-                for start_rel, stop_rel in _decode_state_times(vals):
-                    states_table.add_row(
-                        state_type=state_name_to_idx[name],
-                        start_time=float(t0 + start_rel),
-                        stop_time=float(t0 + stop_rel),
-                    )
-                    s_rows.append(state_row)
-                    state_row += 1
+            # States.
+            trial_states = [
+                (float(t0 + start_rel), float(t0 + stop_rel), state_name_to_idx[name])
+                for name, vals in row["parsed_events"]["States"].items()
+                if name not in self._states_to_skip
+                for start_rel, stop_rel in _decode_state_times(vals)
+            ]
+            for start_abs, stop_abs, type_idx in sorted(trial_states):
+                states_table.add_row(
+                    state_type=type_idx,
+                    start_time=start_abs,
+                    stop_time=stop_abs,
+                )
+                s_rows.append(state_row)
+                state_row += 1
 
-            # Events and actions (both sourced from parsed_events["Events"])
+            # Events and actions (both sourced from parsed_events["Events"]).
+            # The raw Bpod name resolves to a (type_name, value) pair; unmapped names
+            # fall back to their raw name as the event type, with value "Unknown".
+            # As with states, parsed_events["Events"] is keyed by name, so collect the
+            # trial's occurrences and sort by timestamp before writing any rows.
+            trial_events: list[tuple[float, int, str]] = []
+            trial_actions: list[tuple[float, int, str]] = []
             for name, raw_ts in row["parsed_events"]["Events"].items():
-                if name in event_name_to_idx:
-                    value = _EVENT_VALUE_MAP.get(name, "Unknown")
-                    for ts_rel in _to_list(raw_ts):
-                        add_event(
-                            events_table,
-                            event_type=event_name_to_idx[name],
-                            timestamp=float(t0 + ts_rel),
-                            value=value,
-                        )
-                        e_rows.append(event_row)
-                        event_row += 1
-                elif name in action_name_to_idx:
-                    for ts_rel in _to_list(raw_ts):
-                        actions_table.add_row(
-                            action_type=action_name_to_idx[name],
-                            timestamp=float(t0 + ts_rel),
-                            value=_ACTION_VALUE_MAP[name],
-                        )
-                        a_rows.append(action_row)
-                        action_row += 1
+                if name in self._event_map:
+                    type_name, value = self._event_map[name]
+                    target, index_map = trial_events, event_name_to_idx
+                elif name in self._action_map:
+                    type_name, value = self._action_map[name]
+                    target, index_map = trial_actions, action_name_to_idx
+                elif name in event_name_to_idx:
+                    type_name, value = name, "Unknown"
+                    target, index_map = trial_events, event_name_to_idx
+                else:
+                    continue
+                for ts_rel in _to_list(raw_ts):
+                    target.append((float(t0 + ts_rel), index_map[type_name], value))
+
+            for timestamp, type_idx, value in sorted(trial_events):
+                add_event(
+                    events_table,
+                    event_type=type_idx,
+                    timestamp=timestamp,
+                    value=value,
+                )
+                e_rows.append(event_row)
+                event_row += 1
+
+            for timestamp, type_idx, value in sorted(trial_actions):
+                actions_table.add_row(
+                    action_type=type_idx,
+                    timestamp=timestamp,
+                    value=value,
+                )
+                a_rows.append(action_row)
+                action_row += 1
 
             trial_state_indices.append(s_rows)
             trial_event_indices.append(e_rows)
@@ -552,7 +668,7 @@ class BpodBehaviorInterface(BaseDataInterface):
 
         for i, (_, row) in enumerate(df.iterrows()):
             t0 = float(trial_start_ts[i])
-            t1 = float(trial_start_ts[i + 1]) if i + 1 < len(trial_start_ts) else t0
+            t1 = float(trial_start_ts[i + 1]) if i + 1 < len(trial_start_ts) else np.nan
             extra_cols = {col: _coerce(spec, row[col], t0=t0) for col, spec in col_specs.items()}
             trials.add_row(
                 start_time=t0,
