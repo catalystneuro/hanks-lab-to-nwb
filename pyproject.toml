@@ -18,9 +18,10 @@ dependencies = [
   "nwbinspector",
   "ndx-fiber-photometry",
   "ndx-ophys-devices",
-  "ndx-structured-behavior @ git+https://github.com/rly/ndx-structured-behavior.git@switch_to_core_events_table",
+  "ndx-structured-behavior @ git+https://github.com/rly/ndx-structured-behavior.git@main",
   "opencv-python-headless",
   "matplotlib",
+  "networkx",  # tutorial state-transition graph
 ]
 
 [project.urls]
