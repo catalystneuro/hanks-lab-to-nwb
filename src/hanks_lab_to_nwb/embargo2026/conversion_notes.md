@@ -318,7 +318,49 @@ dandiset and break cross-session queries.
   ragged columns are future-proofing for data we may never receive, which is still the right
   call for schema stability but should be stated as such.
 
-### 2. `bail_tone_time` is present in 124770 but absent in 119247  *(open, 2026-09-21)*
+### 2. What does `processing_info["independent_ranges"]` mean?  *(open, 2026-09-22)*
+
+The key drives the `independent_range_edge` rows of the artifact intervals table, and **its meaning
+is inferred rather than documented**. The lab supplies no description: `Subj Info.txt` repeats the
+same dict under `Preprocessing Info:` and says nothing more, and no other key in `processing_info`
+explains it.
+
+What the data shows, across all four sessions:
+
+- The listed spans carry values; only the gap **between** consecutive spans is affected.
+- That gap is `NaN` in exactly the ten series produced after filtering and baseline fitting. The two
+  decimated series keep their samples there.
+- The raw signal **steps** across the boundary — in 119247 NAc the decimated trace jumps at 2485.1 s.
+- Gaps are short and deliberate-looking: 0.09–0.2 s.
+
+The natural reading is that each span was filtered and baseline-fitted independently, so no fit
+covers the join, and the boundary was placed where the signal jumped (a re-patch, a gain change).
+That is consistent with everything observed but **unconfirmed**, so the meaning stored in the NWB
+file claims only that the workflow treated the spans separately.
+
+**To confirm with the lab:** what `independent_ranges` records, what causes the step at the
+boundary, and whether the two sides are comparable in amplitude after processing — the last matters
+for anyone concatenating across the seam.
+
+### 3. Should `pre_session_crop` be an interval at all?  *(open, 2026-09-22)*
+
+The other two artifact types come from explicit `[start, stop]` numbers in `processing_info`.
+This one does not: the source carries only `ignore_sess_start: True`, a boolean, in all four
+sessions. **There is no interval to read.**
+
+The pipeline therefore derives the window from the data — first sample of the time vector to the
+first sample surviving processing (`_first_valid_time`). That is exact, and lands 5.000 s before the
+first trial in all 16 region-sessions (max deviation 4.98 ms, one sample), which is what identified
+the crop as anchored to the first trial rather than being a filter warm-up.
+
+**To ask the lab:** given they record only the flag and not the span, do they want this written as a
+`TimeIntervals` row at all, or is the flag itself the thing worth preserving? It is the largest
+window in every session (7.5–22 s) and is currently 16 of the 25 rows across the four files, so the
+answer materially changes the table. Two follow-ups if they keep it: is the 5 s pre-trial baseline a
+fixed protocol constant, and would a session ever have `ignore_sess_start: False` while the data
+still begins with NaN — in which case the pipeline would emit no crop row.
+
+### 4. `bail_tone_time` is present in 124770 but absent in 119247  *(open, 2026-09-21)*
 
 Both sessions are `ToneCatDelayResp` stage 7 with an identical Bpod state vocabulary (no state
 name differs between them), so this is a difference in the **lab's post-processing version**,
@@ -331,7 +373,7 @@ Session 119247 has 15 bail trials and no such column.
 processed with an older script? If the delay is a constant of the protocol the column is pure
 redundancy and could be excluded; we keep it for now with a description saying how it is derived.
 
-### 3. Subject 238 date of birth  *(open)*
+### 5. Subject 238 date of birth  *(open)*
 
 Lab reported `"2025-05-0"`; currently assumed `2025-05-01` in `convert_session.py`.
 
@@ -392,32 +434,58 @@ Lab reported `"2025-05-0"`; currently assumed `2025-05-01` in `convert_session.p
   per-session amount with no constant correction. `session_to_nwb` now raises instead. Verified
   unreachable for this dataset: all four convertible sessions have a `.doric` with a valid `Created`
   attribute, and no session has `sess_data` without a `.doric` (117242 is the reverse case).
-- **Fiber-photometry dropouts are not written as metadata — the data already carries them**
-  (decided 2026-09-21). `fp_data["fp_data"]["processing_info"]["dropouts"]` lists per-region spans
-  where the signal dropped, present in two of the four sessions:
+- **Preprocessing artifact windows are written as a `TimeIntervals` table**
+  (implemented 2026-09-22, superseding an earlier decision not to). The scope of work commits to
+  *"Artifact time windows identified by Tanner's preprocessing workflow will be stored as annotated
+  time intervals"*, so `FiberPhotometryArtifactInterface` writes
+  `nwbfile.intervals["fiber_photometry_artifacts_intervals"]` from
+  `fp_data["fp_data"]["processing_info"]`.
 
-  | Session | Region | Window | Samples NaN |
+  **Three window types**, in the `artifact_type` column. Verified across all four sessions: every
+  `NaN` run in the processed signals maps to exactly one, with nothing unexplained.
+
+  | Type | Derived from | Windows | Masks |
   |---|---|---|---|
-  | 119247 | NAc | 2499.7 – 2500.3 s | 121 / 121 |
-  | 119247 | NAc | 3067.1 – 3067.5 s | 80 / 80 |
-  | 119974 | NAc | 2202.1 – 2202.3 s | 40 / 40 |
-  | 119974 | DMS | 3630.4 – 3630.6 s | 40 / 40 |
+  | `dropout` | `processing_info["dropouts"]` | 4 | all 12 processed series |
+  | `independent_range_edge` | gap between consecutive `processing_info["independent_ranges"]` | 5 | the 10 derived only |
+  | `pre_session_crop` | `processing_info["ignore_sess_start"]` | 16 (4/session) | the 10 derived only |
 
-  Those samples are already `NaN` in the source pickle, and the `NaN`s round-trip into the converted
-  files: in both, every window is fully NaN on its own region's channel of
-  `FiberPhotometryResponseSeriesDFF`, with 0 NaN on the three other channels at the same times.
-  A downstream user reading that region's dF/F sees NaN and skips it, so the data self-documents
-  and the windows are recoverable from it directly. We therefore do **not** duplicate the dropout
-  dict into the NWB file.
+  Row counts: 8 (119247), 6 (119974), 6 (124770), 5 (124949).
 
-  Caveat worth knowing: dropout NaNs are not the only NaNs. Per-channel totals in 119247 are
-  1496 / 1535 / 1496 / 1716 of 888,457 samples, mostly filter edge effects near the session start;
-  NAc's extra ~200 are the dropouts. So scanning for NaN finds the dropouts but does not by itself
-  distinguish them from filter edges.
-
-  Note this is independent of the timing representation. All processed series use `rate` in every
-  session; only the raw lock-in series of 119247/119974 use explicit timestamps (see the timing
-  entry above). The NaN lives in the data array, not in the clock.
+  - `independent_ranges` lists the spans fitted *independently of one another*, so the window is the
+    gap **between** consecutive entries, not the entries themselves. A trailing entry with one
+    element is open-ended to session end and yields no window.
+  - `ignore_sess_start` is a bare flag with no window attached. Measured: the derived series begin
+    exactly 5.000 s before the first trial (max deviation 4.98 ms — one sample — across all 16
+    region-sessions). It is a deliberate crop, **not** corrupted data.
+  - **Annotated bounds are snapped to the masked samples before writing.** The annotation is written
+    to a tenth of a second and can overhang: the `independent_ranges` seam annotated 2485.0–2485.1
+    in 119247 contains a *valid* sample at 2485.00091 before the `NaN` run starts. Snapping keeps
+    the invariant that every sample a row covers is masked in every series that row references.
+  - **Every row references all 12 processed series** via the `timeseries` column. An earlier
+    version referenced only the series in which a window coincides with `NaN` (10 for the
+    non-dropout types,
+    since the decimated series are produced before filtering and baseline fitting). That was
+    changed on 2026-09-22: un-masked is not unaffected — at an `independent_range_edge` the
+    decimated trace carries a clear step in the signal, which is exactly the discontinuity that
+    caused the lab to fit the two sides separately. The window is a statement about the region's
+    signal over that span and applies to every series carrying it, so **a reference does not imply
+    the samples are `NaN`**.
+  - `TimeSeriesReference` selects a row range, not a column, and the series are
+    `(n_samples, n_regions)`. A reference therefore spans every region for its time range; the
+    `location` column names the region whose column to take.
+  - **`artifact_type` is documented by an attached `MeaningsTable`**, not by a per-row description
+    column. Reach it with `table.get_meanings_for_column("artifact_type")`; in HDF5 it sits at
+    `intervals/fiber_photometry_artifacts_intervals/meanings_tables/artifact_type_meanings`.
+    A MeaningsTable is meant to list every possible value, so all three are recorded even where one
+    does not occur — 124949 has no dropouts, yet still carries the definition of `dropout`, which a
+    per-row column structurally cannot do. It also avoids repeating one sentence on all 16
+    `pre_session_crop` rows. Requires hdmf >= 6.2 / pynwb >= 4.1; verified to round-trip.
+  - Validated by the `Artifacts` group in the harness: row counts against `processing_info`, every row
+    inside its annotated window, every reference resolving to all-`NaN`, and every `NaN` run in
+    `dff_iso` covered by some row, the meanings table covering all three types, every row carrying
+    all 12 references, and each reference resolving to its row's own time span. 252 source checks
+    total (63 per session), 0 failures.
 - **`GenerateTrialBit1–15` states are dropped** — they encode the trial number as a 15-bit TTL
   word for Doric synchronization, not a behavioral state.
 
