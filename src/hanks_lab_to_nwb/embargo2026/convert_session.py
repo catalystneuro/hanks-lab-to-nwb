@@ -95,23 +95,31 @@ def session_to_nwb(
     iso_streams = _fp_yaml["FiberPhotometry"]["isosbestic_series"]["stream_names"]
     sig_streams = _fp_yaml["FiberPhotometry"]["signal_series"]["stream_names"]
 
-    doric_path = str(data_dir_path / f"Session_{session_id}.doric")
-    fp_pkl_path = str(data_dir_path / f"fp_data_{session_id}.pkl")
+    doric_path = data_dir_path / f"Session_{session_id}.doric"
+    sess_data_path = str(data_dir_path / f"sess_data_{session_id}.pkl")
+    fp_data_path = str(data_dir_path / f"fp_data_{session_id}.pkl")
     ain_to_region = _SESSION_AIN_TO_REGION[session_id]
     video_path = data_dir_path / f"mov_{session_id}.mp4"
     source_data = dict(
-        DoricFPIsosbestic=dict(file_path=doric_path, stream_names=iso_streams, metadata_key="isosbestic_series"),
-        DoricFPSignal=dict(file_path=doric_path, stream_names=sig_streams, metadata_key="signal_series"),
+        Behavior=dict(file_path=sess_data_path, fp_data_path=fp_data_path),
     )
+    conversion_options = dict()
+    # The raw lock-in acquisition is only available for sessions whose .doric was
+    # shared; processed FP (from the pkl) and behavior are converted regardless.
+    if doric_path.exists():
+        source_data["DoricFPIsosbestic"] = dict(
+            file_path=str(doric_path), stream_names=iso_streams, metadata_key="isosbestic_series"
+        )
+        source_data["DoricFPSignal"] = dict(
+            file_path=str(doric_path), stream_names=sig_streams, metadata_key="signal_series"
+        )
+        conversion_options["DoricFPIsosbestic"] = dict(stub_test=stub_test)
+        conversion_options["DoricFPSignal"] = dict(stub_test=stub_test)
     if video_path.exists():
         source_data["Video"] = dict(file_paths=[video_path], metadata_key="behavior_video", video_name="BehaviorVideo")
-    conversion_options = dict(
-        DoricFPIsosbestic=dict(stub_test=stub_test),
-        DoricFPSignal=dict(stub_test=stub_test),
-    )
     for interface_name, signal_key, meta_key in _PROCESSED_SIGNALS:
         source_data[interface_name] = dict(
-            file_path=fp_pkl_path,
+            file_path=fp_data_path,
             ain_to_region=ain_to_region,
             signal_key=signal_key,
             metadata_key=meta_key,

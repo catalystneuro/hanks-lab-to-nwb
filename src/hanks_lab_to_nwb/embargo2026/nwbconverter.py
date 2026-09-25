@@ -8,7 +8,10 @@ from neuroconv.datainterfaces import (
     ExternalVideoInterface,
 )
 
-from hanks_lab_to_nwb.interfaces import HanksLabProcessedFiberPhotometryInterface
+from hanks_lab_to_nwb.interfaces import (
+    BpodBehaviorInterface,
+    HanksLabProcessedFiberPhotometryInterface,
+)
 
 
 class HanksLabNWBConverter(NWBConverter):
@@ -31,6 +34,7 @@ class HanksLabNWBConverter(NWBConverter):
         ProcessedFP_FittedBaselineFbandIso=HanksLabProcessedFiberPhotometryInterface,
         ProcessedFP_DFF=HanksLabProcessedFiberPhotometryInterface,
         ProcessedFP_DFFBaselineFband=HanksLabProcessedFiberPhotometryInterface,
+        Behavior=BpodBehaviorInterface,
     )
 
     def temporally_align_data_interfaces(self, metadata=None, conversion_options=None):
