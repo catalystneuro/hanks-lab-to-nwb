@@ -25,7 +25,7 @@ _SERIES_REGION_DESCRIPTION_TEMPLATES = {
     "dff_baseline_fband_series": "Frequency-band corrected DF/F trace for {regions_str}",
 }
 
-_ATLAS_REGION_NAME = {
+ATLAS_REGION_NAME = {
     "NAc": "Nucleus accumbens",
     "DLS": "Dorsolateral striatum",
     "DMS": "Dorsomedial striatum",
@@ -85,7 +85,7 @@ def patch_fp_metadata_for_session(metadata: dict, ain_to_region: dict, fp_data: 
     # 2, 3 & 4. Patch location, fiber_insertion, and region-based device names per AIN channel.
     devices = metadata["Devices"]
     for ain, region in ain_to_region.items():
-        atlas_name = _ATLAS_REGION_NAME.get(region, region)
+        atlas_name = ATLAS_REGION_NAME.get(region, region)
         for row_prefix in ("iso", "sig"):
             row_key = f"{row_prefix}_ain0{ain}"
             table_rows[row_key]["location"] = atlas_name
@@ -106,7 +106,7 @@ def patch_fp_metadata_for_session(metadata: dict, ain_to_region: dict, fp_data: 
             )
 
     # 4. Set region-aware descriptions on all response series.
-    regions = [_ATLAS_REGION_NAME.get(ain_to_region[ain], ain_to_region[ain]) for ain in sorted(ain_to_region)]
+    regions = [ATLAS_REGION_NAME.get(ain_to_region[ain], ain_to_region[ain]) for ain in sorted(ain_to_region)]
     regions_str = ", ".join(regions)
     for meta_key, template in _SERIES_REGION_DESCRIPTION_TEMPLATES.items():
         fp_meta[meta_key]["fiber_photometry_table_region_description"] = template.format(regions_str=regions_str)

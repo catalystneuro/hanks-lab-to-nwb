@@ -126,6 +126,14 @@ def session_to_nwb(
         )
         conversion_options[interface_name] = dict(stub_test=stub_test, parent_container="processing/ophys")
 
+    # Artifact windows reference the processed series, so this interface needs to resolve
+    # each pkl signal key to the series name configured in fiber_photometry.yaml.
+    source_data["FiberPhotometryArtifacts"] = dict(
+        file_path=fp_data_path,
+        ain_to_region=ain_to_region,
+        signal_key_to_metadata_key={signal_key: meta_key for _, signal_key, meta_key in _PROCESSED_SIGNALS},
+    )
+
     converter = HanksLabNWBConverter(source_data=source_data)
     metadata = converter.get_metadata()
 
