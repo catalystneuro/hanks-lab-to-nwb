@@ -54,8 +54,8 @@ _SUBJECT_METADATA = {
     238: dict(
         sex="M",
         strain="Long Evans",
-        # TODO: confirm exact date — lab reported "2025-05-0" (likely 2025-05-01)
-        date_of_birth=datetime.datetime(2025, 5, 1, tzinfo=_TZ),
+        # Confirmed by the lab 2026-09-23; the earlier "2025-05-0" in Subj Info.txt was truncated.
+        date_of_birth=datetime.datetime(2025, 5, 20, tzinfo=_TZ),
         weight="540 g",
     ),
 }
