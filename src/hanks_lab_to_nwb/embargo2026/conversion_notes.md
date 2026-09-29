@@ -373,121 +373,20 @@ Session 119247 has 15 bail trials and no such column.
 processed with an older script? If the delay is a constant of the protocol the column is pure
 redundancy and could be excluded; we keep it for now with a description saying how it is derived.
 
-### 5. Subject 238 date of birth  *(open)*
-
-Lab reported `"2025-05-0"`; currently assumed `2025-05-01` in `convert_session.py`.
-
 ### Resolved
+
+- **Subject 238 date of birth** (confirmed by lab 2026-09-23) — `Subj Info.txt` recorded a
+  truncated `"2025-05-0"` and the pipeline assumed `2025-05-01`. The real date is **2025-05-20**.
+  `_SUBJECT_METADATA[238]` updated; sessions 124770 and 124949 re-converted and re-uploaded.
 
 - **Processed signal descriptions** (confirmed by lab 2026-08-25) — all 12 pkl key
   descriptions confirmed. `fiber_photometry.yaml` updated to match exactly.
 
 - **Timestamps** (confirmed by lab 2026-08-25) — `fp_data["fp_data"]["time"]` (Doric
-  clock decimated 30×, ~200 Hz) is correct for all 12 processed series; no offset needed.
+  clock decimated 30x, ~200 Hz) is correct for all 12 processed series; no offset needed.
 
 - **Series inclusion** (confirmed by lab 2026-08-25) — all 12 processed series should
   be included in NWB.
-
-### Design decisions settled during conversion
-
-
-- **Tone time bases.** `abs_tone_start_times == stim_start_time + rel_tone_start_times` holds
-  exactly (max abs deviation 4.5e-13 s over session 119247). `rel_*` is relative to stimulus
-  onset, not to center-poke onset.
-- **Empty `abs_*` tone lists.** 9 / 165 trials in session 119247 have `NaN` absolute tone times
-  in the raw data and therefore empty lists in NWB: 7 trials the rat never started, plus
-  2 bail trials (73, 158) where the rat withdrew from the center port before tone onset.
-  The `rel_*` times, `tone_info` and `tone_db_offsets` are still populated on all 165 trials
-  because Bpod had already generated the stimulus.
-- **Event/action type names carry the thing, `value` carries the edge.**  Bpod's
-  `Port3In` / `Port3Out` collapse to one `Port3` event type with `value` `In` / `Out`;
-  `BNC1High` / `BNC1Low` collapse to one `BNC1` action type with `On` / `Off`;
-  `GlobalTimerN_End` becomes `GlobalTimerN` + `End`.  This matches the Pagan Lab
-  reference file, whose `EventTypesTable` is just `C`, `L`, `R`.  Event types went
-  6 → 3 rows and action types 7 → 6, with zero information loss: every raw Bpod name
-  is recoverable as `name + value`, verified by reconstructing all 13 raw names and
-  their exact counts from the NWB file for session 119247.
-  Configured per raw name in `bpod_behavior_columns.yaml`; the interface accepts both
-  `{event_name: Port3, value: "In"}` and the older `Tup: "Expired"` shorthand.
-- **Cross-session trials-schema audit (all 4 sessions, 2026-09-21).** `cue_start_time`,
-  `cue_end_time` and `forced_hit` are dropped from the trials table by the `isna().all()` guard
-  in `_build_col_specs`. Confirmed safe: they are all-NaN in *both* WM sessions and absent
-  entirely from both bandit sessions, so no session silently gains a column the others lack.
-  The only genuinely inconsistent column across same-task sessions is `bail_tone_time`
-  (see open question 2). The two bandit sessions have identical column status throughout.
-- **Fiber photometry timing stays as `rate` + `starting_time` where NeuroConv chooses it**
-  (decided 2026-09-21). NeuroConv picks per file: the `.doric` clock for 124770/124949 is
-  perfectly regular (dt std 5e-16 s) so those get `rate`; 119247/119974 jitter (5.5e-9 s) and get
-  explicit timestamps. All 12 processed series use `rate` in every session. Forcing
-  `always_write_timestamps=True` (a conversion option on both FP interfaces) was considered and
-  rejected: it would add 1.12 GB across the four files (+35% on 124770/124949), it contradicts the
-  NWB practice of preferring rate for regularly sampled data, and most of the cost is 12 identical
-  copies of one time vector per session. Both forms reconstruct the source clock to <=1e-9 s and
-  both are covered by the validation harness. Consumers should use `TimeSeries.get_timestamps()`,
-  which returns the reconstructed vector for rate-based series, rather than reading `.timestamps`.
-- **`session_start_time` has no fallback, by design** (decided 2026-09-21). It is read from the
-  `.doric` `Created` attribute, which is the zero point of the Doric clock that every timestamp in
-  the file is measured against (`trial_start_ts` in `fp_data` is in Doric-clock seconds). The old
-  fallback to the Bpod session header (`sessiondate + starttime`) was removed: the Doric rig starts
-  recording before Bpod does — +12 s (119247), +14 s (119974), +23 s (124770), +26 s (124949) — so a
-  Bpod-derived start time lands after the file's true t=0 and misattributes every timestamp by a
-  per-session amount with no constant correction. `session_to_nwb` now raises instead. Verified
-  unreachable for this dataset: all four convertible sessions have a `.doric` with a valid `Created`
-  attribute, and no session has `sess_data` without a `.doric` (117242 is the reverse case).
-- **Preprocessing artifact windows are written as a `TimeIntervals` table**
-  (implemented 2026-09-22, superseding an earlier decision not to). The scope of work commits to
-  *"Artifact time windows identified by Tanner's preprocessing workflow will be stored as annotated
-  time intervals"*, so `FiberPhotometryArtifactInterface` writes
-  `nwbfile.intervals["fiber_photometry_artifacts_intervals"]` from
-  `fp_data["fp_data"]["processing_info"]`.
-
-  **Three window types**, in the `artifact_type` column. Verified across all four sessions: every
-  `NaN` run in the processed signals maps to exactly one, with nothing unexplained.
-
-  | Type | Derived from | Windows | Masks |
-  |---|---|---|---|
-  | `dropout` | `processing_info["dropouts"]` | 4 | all 12 processed series |
-  | `independent_range_edge` | gap between consecutive `processing_info["independent_ranges"]` | 5 | the 10 derived only |
-  | `pre_session_crop` | `processing_info["ignore_sess_start"]` | 16 (4/session) | the 10 derived only |
-
-  Row counts: 8 (119247), 6 (119974), 6 (124770), 5 (124949).
-
-  - `independent_ranges` lists the spans fitted *independently of one another*, so the window is the
-    gap **between** consecutive entries, not the entries themselves. A trailing entry with one
-    element is open-ended to session end and yields no window.
-  - `ignore_sess_start` is a bare flag with no window attached. Measured: the derived series begin
-    exactly 5.000 s before the first trial (max deviation 4.98 ms — one sample — across all 16
-    region-sessions). It is a deliberate crop, **not** corrupted data.
-  - **Annotated bounds are snapped to the masked samples before writing.** The annotation is written
-    to a tenth of a second and can overhang: the `independent_ranges` seam annotated 2485.0–2485.1
-    in 119247 contains a *valid* sample at 2485.00091 before the `NaN` run starts. Snapping keeps
-    the invariant that every sample a row covers is masked in every series that row references.
-  - **Every row references all 12 processed series** via the `timeseries` column. An earlier
-    version referenced only the series in which a window coincides with `NaN` (10 for the
-    non-dropout types,
-    since the decimated series are produced before filtering and baseline fitting). That was
-    changed on 2026-09-22: un-masked is not unaffected — at an `independent_range_edge` the
-    decimated trace carries a clear step in the signal, which is exactly the discontinuity that
-    caused the lab to fit the two sides separately. The window is a statement about the region's
-    signal over that span and applies to every series carrying it, so **a reference does not imply
-    the samples are `NaN`**.
-  - `TimeSeriesReference` selects a row range, not a column, and the series are
-    `(n_samples, n_regions)`. A reference therefore spans every region for its time range; the
-    `location` column names the region whose column to take.
-  - **`artifact_type` is documented by an attached `MeaningsTable`**, not by a per-row description
-    column. Reach it with `table.get_meanings_for_column("artifact_type")`; in HDF5 it sits at
-    `intervals/fiber_photometry_artifacts_intervals/meanings_tables/artifact_type_meanings`.
-    A MeaningsTable is meant to list every possible value, so all three are recorded even where one
-    does not occur — 124949 has no dropouts, yet still carries the definition of `dropout`, which a
-    per-row column structurally cannot do. It also avoids repeating one sentence on all 16
-    `pre_session_crop` rows. Requires hdmf >= 6.2 / pynwb >= 4.1; verified to round-trip.
-  - Validated by the `Artifacts` group in the harness: row counts against `processing_info`, every row
-    inside its annotated window, every reference resolving to all-`NaN`, and every `NaN` run in
-    `dff_iso` covered by some row, the meanings table covering all three types, every row carrying
-    all 12 references, and each reference resolving to its row's own time span. 252 source checks
-    total (63 per session), 0 failures.
-- **`GenerateTrialBit1–15` states are dropped** — they encode the trial number as a 15-bit TTL
-  word for Doric synchronization, not a behavioral state.
 
 ---
 
