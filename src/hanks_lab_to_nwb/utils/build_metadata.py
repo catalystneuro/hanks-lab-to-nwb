@@ -60,8 +60,10 @@ def patch_fp_metadata_for_session(metadata: dict, ain_to_region: dict, fp_data: 
     1. Removes placeholder scaffold entries left by get_default_fiber_photometry_metadata.
     2. Sets ``location`` on each of the 8 pre-defined FiberPhotometryTable rows
        from the AIN→region mapping.
-    3. Sets ``name`` on per-AIN device instances to region-based names
-       (e.g. ``optical_fiber_NAc``, ``excitation_filter_isosbestic_NAc``).
+    3. Sets ``name`` on per-AIN device instances: optical fibers get region-based names
+       (e.g. ``optical_fiber_NAc``), excitation filters get AIN-based names
+       (e.g. ``excitation_filter_isosbestic_AIN01``) because they belong to the channel's
+       minicube, not to the implant.
     4. Sets ``fiber_insertion`` coordinates on each ``optical_fiber_ain0X`` device
        from ``fp_data["implant_info"]``.
     5. Sets ``fiber_photometry_table_region_description`` on the two response series.
@@ -103,17 +105,22 @@ def patch_fp_metadata_for_session(metadata: dict, ain_to_region: dict, fp_data: 
             row_key = f"{row_prefix}_ain0{ain}"
             table_rows[row_key]["location"] = atlas_name
 
-        # Rename device instances from AIN-indexed to region-named, and name the
-        # region in each description (NWB Inspector flags devices with no description).
+        # Optical fibers are implanted per region, so they are named by region. Excitation
+        # filters live in the minicube of a Doric channel (AIN01-02: iFMC5, AIN03-04: iFMC4)
+        # and the region->AIN patching changes between sessions, so they are named by AIN,
+        # like the photodetectors. Region-based filter names made one name describe different
+        # filters in different sessions (see "Excitation filter naming" in conversion_notes.md).
+        # Each description names the session's region (NWB Inspector flags devices with no
+        # description).
         devices[f"optical_fiber_ain0{ain}"]["name"] = f"optical_fiber_{region}"
         devices[f"optical_fiber_ain0{ain}"][
             "description"
         ] = f"Optical fiber implanted in {atlas_name} ({region}), recorded on AIN0{ain}."
-        devices[f"excitation_filter_isosbestic_ain0{ain}"]["name"] = f"excitation_filter_isosbestic_{region}"
+        devices[f"excitation_filter_isosbestic_ain0{ain}"]["name"] = f"excitation_filter_isosbestic_AIN0{ain}"
         devices[f"excitation_filter_isosbestic_ain0{ain}"][
             "description"
         ] = f"Isosbestic excitation bandpass filter for the {atlas_name} ({region}) channel, AIN0{ain}."
-        devices[f"excitation_filter_signal_ain0{ain}"]["name"] = f"excitation_filter_signal_{region}"
+        devices[f"excitation_filter_signal_ain0{ain}"]["name"] = f"excitation_filter_signal_AIN0{ain}"
         devices[f"excitation_filter_signal_ain0{ain}"][
             "description"
         ] = f"Signal excitation bandpass filter for the {atlas_name} ({region}) channel, AIN0{ain}."

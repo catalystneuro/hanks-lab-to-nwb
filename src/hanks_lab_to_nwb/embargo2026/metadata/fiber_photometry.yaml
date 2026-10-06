@@ -60,7 +60,7 @@ DeviceModels:
     model_number: iFMC
     description: >-
       Doric iFMC minicube integrated Si photodiode photodetector with 960 nm peak wavelength.
-    detector_type: PMT
+    detector_type: Photodiode
     gain: 7.6
     gain_unit: V/nW
     wavelength_range_in_nm: [350.0, 1000.0]
@@ -168,8 +168,7 @@ Devices:
     description: "Emission bandpass filter in the Doric iFMC passing the dLight3.8 emission band."
 
   # name: intentionally absent for all per-AIN filter and fiber entries below.
-  # patch_fp_metadata_for_session() sets name to excitation_filter_*_{region}
-  # and optical_fiber_{region} at runtime.
+  # patch_fp_metadata_for_session() sets name to excitation_filter_*_AIN0X at runtime.
   excitation_filter_isosbestic_ain01:
     type: BandOpticalFilter
     device_model_metadata_key: excitation_filter_isosbestic_model_ain01_ain02

@@ -247,6 +247,103 @@ Pre-trial baseline (~12–15 s) has positive timestamps; first trial at `trial_s
 - `FiberPhotometryResponseSeries` in `acquisition`: raw LockIn signals (from .doric)
 - `FiberPhotometryResponseSeries` in `processing["ophys"]`: dFF signals (from pkl) → `FiberPhotometryResponseSeriesDFF`
 - `OpticalFiber` with `FiberInsertion` per implanted region (AP/ML/DV from pkl)
+- Device naming: optical fibers by region (`optical_fiber_NAc`); photodetectors and
+  excitation filters by Doric channel (`PhotodetectorAIN01`, `excitation_filter_isosbestic_AIN01`,
+  `excitation_filter_signal_AIN01`). See the next section for why the filters are per-AIN.
+
+### Excitation filter naming: per AIN, not per region  *(changed 2026-09-29)*
+
+**Summary.** Excitation filters used to be named by the brain region recorded on their channel
+(`excitation_filter_isosbestic_NAc`). Because the region→channel patching changes between
+sessions, the same name described different physical filters, with different center wavelengths
+and bandwidths, in different sessions. Each NWB file was internally correct, but loading several
+sessions into Spyglass, which keeps a single shared device catalog keyed by device name, collided.
+Filters are now named by channel (`excitation_filter_isosbestic_AIN01` … `_AIN04`) and all four
+sessions were re-converted.
+
+**Why the filter belongs to the channel, not the region.** Each excitation filter is built into
+the minicube of one Doric channel (see *Fiber Photometry Hardware*):
+
+| Channel | Minicube | Isosbestic filter (center / bandwidth) | Signal filter (center / bandwidth) |
+|---|---|---|---|
+| AIN01, AIN02 | iFMC5 | 420-435 nm (427.5 / 15 nm) | 470-493 nm (481.5 / 23 nm) |
+| AIN03, AIN04 | iFMC4 | 410-420 nm (415.0 / 10 nm) | 460-490 nm (475.0 / 30 nm) |
+
+The implanted fibers are patched onto these channels, and the patching differs between sessions,
+even for the same rat (`_SESSION_AIN_TO_REGION` in `convert_session.py`):
+
+| Session | Subject | AIN01 | AIN02 | AIN03 | AIN04 |
+|---|---|---|---|---|---|
+| 119247 | 400 | DLS | PL | DMS | NAc |
+| 119974 | 400 | NAc | PL | DLS | DMS |
+| 124770 | 238 | DMS | DLS | TS | NAc |
+| 124949 | 238 | NAc | DMS | TS | DLS |
+
+**What each old region-based name meant in each session** (channel, minicube, center/bandwidth nm):
+
+| Old name | 119247 | 119974 | 124770 | 124949 | Collides? |
+|---|---|---|---|---|---|
+| `excitation_filter_isosbestic_DLS` | AIN01 (iFMC5, 427.5/15) | AIN03 (iFMC4, 415/10) | AIN02 (iFMC5, 427.5/15) | AIN04 (iFMC4, 415/10) | yes |
+| `excitation_filter_isosbestic_DMS` | AIN03 (iFMC4, 415/10) | AIN04 (iFMC4, 415/10) | AIN01 (iFMC5, 427.5/15) | AIN02 (iFMC5, 427.5/15) | yes |
+| `excitation_filter_isosbestic_NAc` | AIN04 (iFMC4, 415/10) | AIN01 (iFMC5, 427.5/15) | AIN04 (iFMC4, 415/10) | AIN01 (iFMC5, 427.5/15) | yes |
+| `excitation_filter_isosbestic_PL` | AIN02 (iFMC5, 427.5/15) | AIN02 (iFMC5, 427.5/15) | - | - | no |
+| `excitation_filter_isosbestic_TS` | - | - | AIN03 (iFMC4, 415/10) | AIN03 (iFMC4, 415/10) | no |
+| `excitation_filter_signal_DLS` | AIN01 (iFMC5, 481.5/23) | AIN03 (iFMC4, 475/30) | AIN02 (iFMC5, 481.5/23) | AIN04 (iFMC4, 475/30) | yes |
+| `excitation_filter_signal_DMS` | AIN03 (iFMC4, 475/30) | AIN04 (iFMC4, 475/30) | AIN01 (iFMC5, 481.5/23) | AIN02 (iFMC5, 481.5/23) | yes |
+| `excitation_filter_signal_NAc` | AIN04 (iFMC4, 475/30) | AIN01 (iFMC5, 481.5/23) | AIN04 (iFMC4, 475/30) | AIN01 (iFMC5, 481.5/23) | yes |
+| `excitation_filter_signal_PL` | AIN02 (iFMC5, 481.5/23) | AIN02 (iFMC5, 481.5/23) | - | - | no |
+| `excitation_filter_signal_TS` | - | - | AIN03 (iFMC4, 475/30) | AIN03 (iFMC4, 475/30) | no |
+
+Six of the ten names referred to two different filters across the dataset, including within one
+rat (subject 400: DLS and NAc swap minicubes between 119247 and 119974). PL and TS were consistent
+only because those regions happened to stay on the same channel.
+
+**Where the collision happened.** Spyglass ingestion (`spyglass/insert_fiber_photometry.py`, draft
+`common_photometry` schema from LorenFrankLab/spyglass#1637). Its `OpticalFilter` table is a
+catalog shared by all sessions, with `optical_filter_name` as the only primary key, and each
+session's `FiberPhotometryConfig` row points at a filter by that name.
+
+1. `sub-238_ses-124770` loaded cleanly and stored `excitation_filter_isosbestic_NAc` =
+   415.0 nm center / 10.0 nm bandwidth (NAc was on AIN04, iFMC4).
+2. `sub-238_ses-124949` then arrived with `excitation_filter_isosbestic_NAc` =
+   427.5 nm / 15.0 nm (NAc had moved to AIN01, iFMC5). Spyglass's duplicate check stopped with:
+
+   ```
+   Existing entry differs in 'bandwidth_in_nm' column of 'OpticalFilter'.
+   Accept the existing value of: '10.0' in place of the new value: '15.0' ? [yes, no]
+   ```
+
+   (It reports the first differing column; `center_wavelength_in_nm` also differed, and so did
+   `excitation_filter_isosbestic_DLS` and the three `excitation_filter_signal_*` counterparts.)
+   Run non-interactively, the prompt raised `EOFError`. Answering "yes" would have silently
+   recorded 124949's NAc channel with the wrong filter; answering "no" rejects the session.
+
+**Why it was not caught earlier.** In NWB each file carries its own devices, so the name only has
+to be unique within a session, and every file was correct on its own. The NWB Inspector and the
+source-check harness validate one file at a time. The problem only appears when sessions share a
+device catalog. The same ambiguity would have affected anyone comparing devices by name across
+DANDI files.
+
+**The fix** (`patch_fp_metadata_for_session()` in `utils/build_metadata.py`):
+
+- `excitation_filter_isosbestic_{region}` → `excitation_filter_isosbestic_AIN0{1-4}`
+- `excitation_filter_signal_{region}` → `excitation_filter_signal_AIN0{1-4}`
+- Each name now always means the same physical filter: `_AIN01`/`_AIN02` are always iFMC5,
+  `_AIN03`/`_AIN04` always iFMC4. This matches how the photodetectors were already named
+  (`PhotodetectorAIN01` … `AIN04`), which is why they never collided.
+- Which region was recorded through a filter is still in the file, per session: the
+  `FiberPhotometryTable` row links the filter to the fiber and carries `location`.
+
+**Unchanged on purpose.** `optical_fiber_{region}` stays region-based: the fiber is part of the
+implant, all four share one `OpticalFiberModel` (so the shared catalog row is identical
+whatever the session), and the per-session implant coordinates are stored in Spyglass's
+per-session `FiberPhotometryConfig`, not in the shared catalog. The shared `emission_filter` and
+the two excitation sources were never region-named.
+
+**Re-conversion.** All four sessions (119247, 119974, 124770, 124949) were re-converted with the
+new names on 2026-09-29. Tutorials whose saved outputs list device names
+(`doric_fp_demo.ipynb`, `doric_fp_streaming_demo.ipynb`, `dandi_001973_demo.ipynb`) show the old
+names until they are re-executed.
 
 ### Behavior → ndx-structured-behavior (`BpodBehaviorInterface`)
 
