@@ -79,3 +79,8 @@ Already have: injection coordinates, volume (500 nL), titer
 ## 6. Fiber Photometry Data Processing
 
 - Ask for schematic diagram of the signal processing steps, it would be nice to add it to the tutorial
+- **`fpids` in `fp_data_{sessid}.pkl`** **[optional]**: one integer per region per session
+  (e.g. 119247: DLS 10191, NAc 10192, PL 10193, DMS 10194). The same implanted fiber gets a new
+  value each session, so it looks like a database ID for the recording rather than for the
+  device. What does it identify, and should it be stored? Not converted until confirmed; the
+  per-fiber `comments` are stored in the `FiberPhotometryTable` `notes` column.

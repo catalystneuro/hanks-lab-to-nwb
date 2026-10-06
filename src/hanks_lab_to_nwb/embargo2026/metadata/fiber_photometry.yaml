@@ -128,37 +128,44 @@ Devices:
     name: excitation_source_isosbestic
     device_model_metadata_key: doric_isosbestic_led_model
     # power_in_W: 0.0005  # placeholder, fill when available.
+    description: "Doric LED driver channel delivering the isosbestic excitation wavelength (415/420 nm)."
 
   excitation_source_signal:
     type: ExcitationSource
     name: excitation_source_signal
     device_model_metadata_key: doric_signal_led_model
     # power_in_W: 0.0005  # placeholder, fill when available.
+    description: "Doric LED driver channel delivering the 490 nm excitation for dLight3.8."
 
   photodetector_ain01:
     type: Photodetector
     name: PhotodetectorAIN01
     device_model_metadata_key: doric_photodetector_model
+    description: "Doric iFMC integrated photodetector on analog input channel AIN01."
 
   photodetector_ain02:
     type: Photodetector
     name: PhotodetectorAIN02
     device_model_metadata_key: doric_photodetector_model
+    description: "Doric iFMC integrated photodetector on analog input channel AIN02."
 
   photodetector_ain03:
     type: Photodetector
     name: PhotodetectorAIN03
     device_model_metadata_key: doric_photodetector_model
+    description: "Doric iFMC integrated photodetector on analog input channel AIN03."
 
   photodetector_ain04:
     type: Photodetector
     name: PhotodetectorAIN04
     device_model_metadata_key: doric_photodetector_model
+    description: "Doric iFMC integrated photodetector on analog input channel AIN04."
 
   emission_filter:
     type: BandOpticalFilter
     name: emission_filter
     device_model_metadata_key: emission_filter_model
+    description: "Emission bandpass filter in the Doric iFMC passing the dLight3.8 emission band."
 
   # name: intentionally absent for all per-AIN filter and fiber entries below.
   # patch_fp_metadata_for_session() sets name to excitation_filter_*_{region}
@@ -166,34 +173,42 @@ Devices:
   excitation_filter_isosbestic_ain01:
     type: BandOpticalFilter
     device_model_metadata_key: excitation_filter_isosbestic_model_ain01_ain02
+    description: "Isosbestic excitation bandpass filter."
 
   excitation_filter_isosbestic_ain02:
     type: BandOpticalFilter
     device_model_metadata_key: excitation_filter_isosbestic_model_ain01_ain02
+    description: "Isosbestic excitation bandpass filter."
 
   excitation_filter_isosbestic_ain03:
     type: BandOpticalFilter
     device_model_metadata_key: excitation_filter_isosbestic_model_ain03_ain04
+    description: "Isosbestic excitation bandpass filter."
 
   excitation_filter_isosbestic_ain04:
     type: BandOpticalFilter
     device_model_metadata_key: excitation_filter_isosbestic_model_ain03_ain04
+    description: "Isosbestic excitation bandpass filter."
 
   excitation_filter_signal_ain01:
     type: BandOpticalFilter
     device_model_metadata_key: excitation_filter_signal_model_ain01_ain02
+    description: "Signal excitation bandpass filter."
 
   excitation_filter_signal_ain02:
     type: BandOpticalFilter
     device_model_metadata_key: excitation_filter_signal_model_ain01_ain02
+    description: "Signal excitation bandpass filter."
 
   excitation_filter_signal_ain03:
     type: BandOpticalFilter
     device_model_metadata_key: excitation_filter_signal_model_ain03_ain04
+    description: "Signal excitation bandpass filter."
 
   excitation_filter_signal_ain04:
     type: BandOpticalFilter
     device_model_metadata_key: excitation_filter_signal_model_ain03_ain04
+    description: "Signal excitation bandpass filter."
 
   # Optical fiber instances (one per AIN channel = one per implant site).
   # name and fiber_insertion filled per-session by patch_fp_metadata_for_session().
