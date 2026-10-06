@@ -3,7 +3,7 @@
 import pickle
 import re
 import traceback
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 from hanks_lab_to_nwb.embargo2026.convert_session import (
@@ -32,6 +32,29 @@ def get_session_ids(data_dir_path: Path) -> list[int]:
     return session_ids
 
 
+def _safe_convert(session_id: int, data_dir_path: Path, output_dir_path: Path, stub_test: bool) -> tuple[int, str]:
+    """Convert one session, capturing any exception as text.
+
+    Module-level (not a closure) so ProcessPoolExecutor can pickle it — the
+    "spawn" start method used on macOS and Windows cannot send a nested function
+    to a worker process.
+    """
+    try:
+        nwbfile_path = session_to_nwb(
+            session_id=session_id,
+            data_dir_path=data_dir_path,
+            output_dir_path=output_dir_path,
+            stub_test=stub_test,
+        )
+        return session_id, f"OK {nwbfile_path}"
+    except Exception:
+        exception_dir = Path(output_dir_path) / "exceptions"
+        exception_dir.mkdir(parents=True, exist_ok=True)
+        exc_path = exception_dir / f"sess_{session_id}.txt"
+        exc_path.write_text(traceback.format_exc())
+        return session_id, f"ERROR — see {exc_path}"
+
+
 def dataset_to_nwb(
     data_dir_path: str | Path,
     output_dir_path: str | Path,
@@ -44,24 +67,16 @@ def dataset_to_nwb(
     exception_dir.mkdir(parents=True, exist_ok=True)
 
     session_ids = get_session_ids(data_dir_path)
-    print(f"Found {len(session_ids)} sessions: {session_ids}")
+    print(f"Found {len(session_ids)} sessions: {session_ids}", flush=True)
 
-    def safe_convert(session_id: int):
-        try:
-            session_to_nwb(
-                session_id=session_id,
-                data_dir_path=data_dir_path,
-                output_dir_path=output_dir_path,
-                stub_test=stub_test,
-            )
-        except Exception:
-            exc_path = exception_dir / f"sess_{session_id}.txt"
-            exc_path.write_text(traceback.format_exc())
-            print(f"  ERROR sess {session_id} — see {exc_path}")
-
+    futures = {}
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         for session_id in session_ids:
-            executor.submit(safe_convert, session_id)
+            futures[executor.submit(_safe_convert, session_id, data_dir_path, output_dir_path, stub_test)] = session_id
+        # as_completed surfaces worker results; without it a crashed worker is silent
+        for future in as_completed(futures):
+            session_id, status = future.result()
+            print(f"  sess {session_id}: {status}", flush=True)
 
 
 if __name__ == "__main__":

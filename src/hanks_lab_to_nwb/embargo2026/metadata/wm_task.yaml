@@ -24,13 +24,12 @@ NWBFile:
     ongoing work on automated pose estimation.
   keywords:
     - dopamine
-    - fiber photometry
-    - working memory
     - decision making
+    - working memory
+    - fiber photometry
     - striatum
     - prefrontal cortex
     - rat
-    - dLight
   institution: University of California, Davis
   lab: Hanks
   experimenter:

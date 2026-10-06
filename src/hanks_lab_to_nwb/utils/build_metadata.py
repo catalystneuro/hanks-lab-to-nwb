@@ -39,6 +39,17 @@ _PLACEHOLDER_INDICATOR_KEYS = {"indicator"}
 _PLACEHOLDER_ROW_KEYS = {"row0"}
 
 
+def _fiber_note(recording_info: dict, region: str) -> str:
+    """Note for one fiber's FiberPhotometryTable rows from the lab's per-fiber comment.
+
+    ``recording_info`` is ``fp_data["fp_data"]``. ``comments`` is optional; returns an empty
+    string when there is no comment for ``region``. The per-fiber ``fpids`` are not stored until
+    the lab confirms what they identify.
+    """
+    comment = str((recording_info.get("comments") or {}).get(region) or "").strip()
+    return f"Lab comment: {comment}" if comment else ""
+
+
 def patch_fp_metadata_for_session(metadata: dict, ain_to_region: dict, fp_data: dict) -> None:
     """Fill in the three session-specific fields in the shared FP metadata.
 
@@ -54,6 +65,8 @@ def patch_fp_metadata_for_session(metadata: dict, ain_to_region: dict, fp_data: 
     4. Sets ``fiber_insertion`` coordinates on each ``optical_fiber_ain0X`` device
        from ``fp_data["implant_info"]``.
     5. Sets ``fiber_photometry_table_region_description`` on the two response series.
+    6. Sets ``notes`` on the FiberPhotometryTable rows from the lab's per-fiber comment
+       (``fp_data["fp_data"]["comments"]``). Optional: skipped when a session has none.
 
     Parameters
     ----------
@@ -90,10 +103,20 @@ def patch_fp_metadata_for_session(metadata: dict, ain_to_region: dict, fp_data: 
             row_key = f"{row_prefix}_ain0{ain}"
             table_rows[row_key]["location"] = atlas_name
 
-        # Rename device instances from AIN-indexed to region-named.
+        # Rename device instances from AIN-indexed to region-named, and name the
+        # region in each description (NWB Inspector flags devices with no description).
         devices[f"optical_fiber_ain0{ain}"]["name"] = f"optical_fiber_{region}"
+        devices[f"optical_fiber_ain0{ain}"][
+            "description"
+        ] = f"Optical fiber implanted in {atlas_name} ({region}), recorded on AIN0{ain}."
         devices[f"excitation_filter_isosbestic_ain0{ain}"]["name"] = f"excitation_filter_isosbestic_{region}"
+        devices[f"excitation_filter_isosbestic_ain0{ain}"][
+            "description"
+        ] = f"Isosbestic excitation bandpass filter for the {atlas_name} ({region}) channel, AIN0{ain}."
         devices[f"excitation_filter_signal_ain0{ain}"]["name"] = f"excitation_filter_signal_{region}"
+        devices[f"excitation_filter_signal_ain0{ain}"][
+            "description"
+        ] = f"Signal excitation bandpass filter for the {atlas_name} ({region}) channel, AIN0{ain}."
 
         info = implant_info.get(region, {})
         if info:
@@ -104,6 +127,15 @@ def patch_fp_metadata_for_session(metadata: dict, ain_to_region: dict, fp_data: 
                 position_reference="bregma",
                 hemisphere=info["side"],
             )
+
+    # 6. Notes from the lab's comment per fiber. `notes` is an optional table column,
+    # so once any row has one, every row gets a value (empty where a fiber has none).
+    recording_info = fp_data.get("fp_data") or {}
+    notes = {ain: _fiber_note(recording_info, region) for ain, region in ain_to_region.items()}
+    if any(notes.values()):
+        for row_key, row in table_rows.items():
+            ain = int(row_key.rsplit("ain", 1)[1])
+            row["notes"] = notes.get(ain, "")
 
     # 4. Set region-aware descriptions on all response series.
     regions = [ATLAS_REGION_NAME.get(ain_to_region[ain], ain_to_region[ain]) for ain in sorted(ain_to_region)]
