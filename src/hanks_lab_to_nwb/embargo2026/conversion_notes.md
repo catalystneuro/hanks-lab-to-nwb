@@ -250,6 +250,12 @@ Pre-trial baseline (~12–15 s) has positive timestamps; first trial at `trial_s
 - Device naming: optical fibers by region (`optical_fiber_NAc`); photodetectors and
   excitation filters by Doric channel (`PhotodetectorAIN01`, `excitation_filter_isosbestic_AIN01`,
   `excitation_filter_signal_AIN01`). See the next section for why the filters are per-AIN.
+- Device model naming: models describe the part type, so they do not depend on the channel a
+  part is connected to. Excitation filter models are named by passband
+  (`excitation_filter_420_435_nm_model`, `_410_420_nm_`, `_470_493_nm_`, `_460_490_nm_`);
+  AIN01/AIN02 share the iFMC5 pair and AIN03/AIN04 the iFMC4 pair. The other models are named by
+  part (`doric_isosbestic_led_model`, `doric_signal_led_model`, `doric_photodetector_model`,
+  `emission_filter_model`, `doric_optical_fiber_model`).
 
 ### Excitation filter naming: per AIN, not per region  *(changed 2026-09-29)*
 
