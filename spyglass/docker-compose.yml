@@ -1,0 +1,31 @@
+# Local Spyglass MySQL database for the Hanks lab fiber photometry ingestion.
+#
+# Own container name, named volume, and host port (3307) so it runs alongside any other
+# Spyglass database on the default port 3306 without touching it.
+#
+# Image: datajoint/mysql (pre-configures the mysql_native_password auth plugin so
+# PyMySQL/DataJoint connect without extra flags). Tag 8.0 matches the MySQL version
+# current DataJoint (>=0.14) expects.
+#
+#   Start:        docker compose up -d
+#   Status:       docker compose ps
+#   Stop:         docker compose stop
+#   Wipe DB:      docker compose down -v   (deletes ONLY this project's named volume)
+
+name: spyglass-hanks
+
+services:
+  db:
+    image: datajoint/mysql:8.0
+    platform: linux/amd64   # amd64-only image; runs under Rosetta on Apple Silicon
+    container_name: spyglass-hanks-db
+    ports:
+      - "3307:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=tutorial   # must match dj_local_conf.json
+    volumes:
+      - spyglass-hanks-mysql-data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  spyglass-hanks-mysql-data:

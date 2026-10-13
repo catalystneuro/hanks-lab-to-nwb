@@ -60,7 +60,7 @@ DeviceModels:
     model_number: iFMC
     description: >-
       Doric iFMC minicube integrated Si photodiode photodetector with 960 nm peak wavelength.
-    detector_type: PMT
+    detector_type: Photodiode
     gain: 7.6
     gain_unit: V/nW
     wavelength_range_in_nm: [350.0, 1000.0]
@@ -74,10 +74,14 @@ DeviceModels:
     center_wavelength_in_nm: 525.0
     bandwidth_in_nm: 50.0
 
-  # ── Isosbestic excitation filter models ──
-  # AIN01-02: iFMC5 minicube, filter 420-435 nm (center 427.5 nm, BW 15 nm)
-  excitation_filter_isosbestic_model_ain01_ain02:
-    name: excitation_filter_isosbestic_model_ain01_ain02
+  # ── Excitation filter models, named by passband ──
+  # A model is the filter type, so it is named by the wavelengths it passes. Each Doric channel
+  # has its own physical filter (instances below); channels 1-2 (iFMC5) share one pair of models
+  # and channels 3-4 (iFMC4) the other.
+
+  # Isosbestic, iFMC5: 420-435 nm (center 427.5 nm, BW 15 nm)
+  excitation_filter_420_435_nm_model:
+    name: excitation_filter_420_435_nm_model
     type: BandOpticalFilterModel
     manufacturer: Doric Lenses
     description: Isosbestic excitation bandpass filter, iFMC5 minicube (420-435 nm).
@@ -85,9 +89,9 @@ DeviceModels:
     center_wavelength_in_nm: 427.5
     bandwidth_in_nm: 15.0
 
-  # AIN03-04: iFMC4 minicube, filter 410-420 nm (center 415.0 nm, BW 10 nm)
-  excitation_filter_isosbestic_model_ain03_ain04:
-    name: excitation_filter_isosbestic_model_ain03_ain04
+  # Isosbestic, iFMC4: 410-420 nm (center 415.0 nm, BW 10 nm)
+  excitation_filter_410_420_nm_model:
+    name: excitation_filter_410_420_nm_model
     type: BandOpticalFilterModel
     manufacturer: Doric Lenses
     description: Isosbestic excitation bandpass filter, iFMC4 minicube (410-420 nm).
@@ -95,21 +99,20 @@ DeviceModels:
     center_wavelength_in_nm: 415.0
     bandwidth_in_nm: 10.0
 
-  # ── Signal excitation filter models ──
-  # AIN01-02: iFMC5 minicube, filter 470-493 nm (center 481.5 nm, BW 23 nm)
-  excitation_filter_signal_model_ain01_ain02:
+  # Signal, iFMC5: 470-493 nm (center 481.5 nm, BW 23 nm)
+  excitation_filter_470_493_nm_model:
+    name: excitation_filter_470_493_nm_model
     type: BandOpticalFilterModel
-    name: excitation_filter_signal_model_ain01_ain02
     manufacturer: Doric Lenses
     description: Signal excitation bandpass filter, iFMC5 minicube (470-493 nm).
     filter_type: Bandpass
     center_wavelength_in_nm: 481.5
     bandwidth_in_nm: 23.0
 
-  # AIN03-04: iFMC4 minicube, filter 460-490 nm (center 475.0 nm, BW 30 nm)
-  excitation_filter_signal_model_ain03_ain04:
+  # Signal, iFMC4: 460-490 nm (center 475.0 nm, BW 30 nm)
+  excitation_filter_460_490_nm_model:
+    name: excitation_filter_460_490_nm_model
     type: BandOpticalFilterModel
-    name: excitation_filter_signal_model_ain03_ain04
     manufacturer: Doric Lenses
     description: Signal excitation bandpass filter, iFMC4 minicube (460-490 nm).
     filter_type: Bandpass
@@ -168,46 +171,45 @@ Devices:
     description: "Emission bandpass filter in the Doric iFMC passing the dLight3.8 emission band."
 
   # name: intentionally absent for all per-AIN filter and fiber entries below.
-  # patch_fp_metadata_for_session() sets name to excitation_filter_*_{region}
-  # and optical_fiber_{region} at runtime.
+  # patch_fp_metadata_for_session() sets name to excitation_filter_*_AIN0X at runtime.
   excitation_filter_isosbestic_ain01:
     type: BandOpticalFilter
-    device_model_metadata_key: excitation_filter_isosbestic_model_ain01_ain02
+    device_model_metadata_key: excitation_filter_420_435_nm_model
     description: "Isosbestic excitation bandpass filter."
 
   excitation_filter_isosbestic_ain02:
     type: BandOpticalFilter
-    device_model_metadata_key: excitation_filter_isosbestic_model_ain01_ain02
+    device_model_metadata_key: excitation_filter_420_435_nm_model
     description: "Isosbestic excitation bandpass filter."
 
   excitation_filter_isosbestic_ain03:
     type: BandOpticalFilter
-    device_model_metadata_key: excitation_filter_isosbestic_model_ain03_ain04
+    device_model_metadata_key: excitation_filter_410_420_nm_model
     description: "Isosbestic excitation bandpass filter."
 
   excitation_filter_isosbestic_ain04:
     type: BandOpticalFilter
-    device_model_metadata_key: excitation_filter_isosbestic_model_ain03_ain04
+    device_model_metadata_key: excitation_filter_410_420_nm_model
     description: "Isosbestic excitation bandpass filter."
 
   excitation_filter_signal_ain01:
     type: BandOpticalFilter
-    device_model_metadata_key: excitation_filter_signal_model_ain01_ain02
+    device_model_metadata_key: excitation_filter_470_493_nm_model
     description: "Signal excitation bandpass filter."
 
   excitation_filter_signal_ain02:
     type: BandOpticalFilter
-    device_model_metadata_key: excitation_filter_signal_model_ain01_ain02
+    device_model_metadata_key: excitation_filter_470_493_nm_model
     description: "Signal excitation bandpass filter."
 
   excitation_filter_signal_ain03:
     type: BandOpticalFilter
-    device_model_metadata_key: excitation_filter_signal_model_ain03_ain04
+    device_model_metadata_key: excitation_filter_460_490_nm_model
     description: "Signal excitation bandpass filter."
 
   excitation_filter_signal_ain04:
     type: BandOpticalFilter
-    device_model_metadata_key: excitation_filter_signal_model_ain03_ain04
+    device_model_metadata_key: excitation_filter_460_490_nm_model
     description: "Signal excitation bandpass filter."
 
   # Optical fiber instances (one per AIN channel = one per implant site).

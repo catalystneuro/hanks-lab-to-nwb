@@ -1,0 +1,30 @@
+# Conda environment for the DRAFT fiber-photometry ingestion schema
+# (LorenFrankLab/spyglass PR #1637, branch feature/fiber-photometry-ingestion ->
+# common_photometry), pinned to the commit this pipeline was tested against.
+#
+# After creating the env, upgrade pynwb/hdmf (see "Setup" in README.md):
+#
+#   pip install pynwb==4.1.0 hdmf==6.2.0
+#
+# The converted Hanks NWB files embed NWB `core` 2.10.0, which only pynwb>=4 can read.
+# hdmf>=6 conflicts with ndx-franklab-novela's `hdmf<5` (a Spyglass dependency), so pip
+# cannot install both in one step. pip reports the conflict after the upgrade, but Spyglass
+# only imports ndx-franklab-novela under TYPE_CHECKING, so ingestion is not affected.
+#
+# Spyglass imports natively on macOS/Linux, so no WSL is needed.
+
+name: spyglass-photometry
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - hdf5
+  - git
+  - pip:
+      - "git+https://github.com/LorenFrankLab/spyglass.git@7a2b9a12b224fd7aa3a7f1e002cb0f5f8210d984"
+      - ndx-fiber-photometry==0.2.3
+      - ndx-ophys-devices
+      - pyyaml
+      - jupyter
+      - matplotlib
