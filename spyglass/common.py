@@ -81,7 +81,7 @@ def ensure_session(nwb_file_name: str) -> str:
 
     The copy in the raw dir (stem + "_.nwb") is what Spyglass keys every table on. An already
     registered file is left alone, so a modality can be added without touching the others. After
-    re-converting a file, use ``reload_session()`` (``insert_all_from_session.py``) so the copy is refreshed.
+    re-converting a file, use ``reload_session()`` (``insert_all_sessions.py``) so the copy is refreshed.
     """
     nwbfile_path = Path(raw_dir) / nwb_file_name
     if not nwbfile_path.exists():

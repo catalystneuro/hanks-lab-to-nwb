@@ -3,7 +3,7 @@
 Fills the photometry device catalog (Indicator, ExcitationSource, Photodetector, DichroicMirror,
 OpticalFilter, OpticalFiber), FiberPhotometryConfig and FiberPhotometryResponseSeries. The session
 is registered first if it is not in the database yet (see ``common.ensure_session``). A session
-that already has photometry rows is skipped; use ``insert_all_from_session.py`` to reload a re-converted file.
+that already has photometry rows is skipped; use ``insert_all_sessions.py`` to reload a re-converted file.
 
 Arguments are file names already in the Spyglass raw dir, or paths to converted NWB files anywhere
 on disk (symlinked into the raw dir, not copied):
