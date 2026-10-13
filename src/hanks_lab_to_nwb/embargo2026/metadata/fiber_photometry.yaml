@@ -77,7 +77,7 @@ DeviceModels:
   # ── Isosbestic excitation filter models ──
   # AIN01-02: iFMC5 minicube, filter 420-435 nm (center 427.5 nm, BW 15 nm)
   excitation_filter_isosbestic_model_ain01_ain02:
-    name: excitation_filter_isosbestic_model_ain01_ain02
+    name: excitation_filter_420_435_nm_model
     type: BandOpticalFilterModel
     manufacturer: Doric Lenses
     description: Isosbestic excitation bandpass filter, iFMC5 minicube (420-435 nm).
@@ -87,7 +87,8 @@ DeviceModels:
 
   # AIN03-04: iFMC4 minicube, filter 410-420 nm (center 415.0 nm, BW 10 nm)
   excitation_filter_isosbestic_model_ain03_ain04:
-    name: excitation_filter_isosbestic_model_ain03_ain04
+excitation_filter_410_420_nm_model:
+name: excitation_filter_410_420_nm_model
     type: BandOpticalFilterModel
     manufacturer: Doric Lenses
     description: Isosbestic excitation bandpass filter, iFMC4 minicube (410-420 nm).
@@ -99,7 +100,9 @@ DeviceModels:
   # AIN01-02: iFMC5 minicube, filter 470-493 nm (center 481.5 nm, BW 23 nm)
   excitation_filter_signal_model_ain01_ain02:
     type: BandOpticalFilterModel
-    name: excitation_filter_signal_model_ain01_ain02
+excitation_filter_470_493_nm_model:
+name: excitation_filter_470_493_nm_model
+type: BandOpticalFilterModel
     manufacturer: Doric Lenses
     description: Signal excitation bandpass filter, iFMC5 minicube (470-493 nm).
     filter_type: Bandpass
@@ -109,7 +112,9 @@ DeviceModels:
   # AIN03-04: iFMC4 minicube, filter 460-490 nm (center 475.0 nm, BW 30 nm)
   excitation_filter_signal_model_ain03_ain04:
     type: BandOpticalFilterModel
-    name: excitation_filter_signal_model_ain03_ain04
+excitation_filter_460_490_nm_model:
+name: excitation_filter_460_490_nm_model
+type: BandOpticalFilterModel
     manufacturer: Doric Lenses
     description: Signal excitation bandpass filter, iFMC4 minicube (460-490 nm).
     filter_type: Bandpass
