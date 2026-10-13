@@ -12,7 +12,7 @@ fiber-photometry tables from
 | `spyglass-photometry-env.yaml` | Conda env with Spyglass pinned to PR #1637 commit `7a2b9a12b` |
 | `check_connection.py` | Checks the database connection and that Spyglass loads |
 | `insert_fiber_photometry.py` | The loader. Fills only the photometry tables and the parents they require (`Session`, `Subject`, `Lab`/`Institution`, device catalog). |
-| `notebooks/spyglass_fiber_photometry_tutorial.ipynb` | Tutorial, executed with outputs |
+| `tutorials/spyglass_fiber_photometry_tutorial.ipynb` | Tutorial, executed with outputs |
 
 ## What ends up in the database
 
