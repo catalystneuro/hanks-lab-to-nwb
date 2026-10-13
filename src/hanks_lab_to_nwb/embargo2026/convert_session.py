@@ -115,8 +115,15 @@ def session_to_nwb(
         )
         conversion_options["DoricFPIsosbestic"] = dict(stub_test=stub_test)
         conversion_options["DoricFPSignal"] = dict(stub_test=stub_test)
+    # Spyglass reads the video through the epoch and task table, which span the video's frames.
     if video_path.exists():
-        source_data["Video"] = dict(file_paths=[video_path], metadata_key="behavior_video", video_name="BehaviorVideo")
+        source_data["Video"] = dict(
+            file_path=video_path,
+            timestamps_file_path=video_path.with_suffix(".doric"),
+            metadata_key="behavior_video",
+            video_name="BehaviorVideo",
+        )
+        source_data["Epoch"] = dict(file_path=video_path.with_suffix(".doric"))
     for interface_name, signal_key, meta_key in _PROCESSED_SIGNALS:
         source_data[interface_name] = dict(
             file_path=fp_data_path,
@@ -150,6 +157,9 @@ def session_to_nwb(
     task_type = _SESSION_TASK_TYPE[session_id]
     task_metadata = load_dict_from_file(_metadata_dir / f"{task_type}.yaml")
     metadata = dict_deep_update(metadata, task_metadata)
+    # camera_id is the ID in the camera's name in video.yaml ("camera_device 0").
+    metadata["Tasks"][0]["name"] = sess_df["protocol"].iloc[0]
+    metadata["Tasks"][0]["camera_id"] = [0]
 
     metadata = dict_deep_update(metadata, _fp_yaml, append_list=False)
     metadata = dict_deep_update(metadata, _video_yaml)
