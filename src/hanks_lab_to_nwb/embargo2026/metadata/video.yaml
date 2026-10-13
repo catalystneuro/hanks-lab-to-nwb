@@ -1,6 +1,6 @@
-# Behavior camera metadata — shared across all sessions.
-# Camera is triggered frame-by-frame by the Doric system via DIO04, so frame
-# timestamps are derived from DIO04 rising edges in the Doric clock.
+# Behavior camera metadata, shared across all sessions.
+# The camera is triggered frame-by-frame by the Doric system via DIO04; SpyglassVideoInterface
+# reads the frame timestamps (Doric clock) from the mov_{session_id}.doric sidecar.
 #
 # Hardware fields below are read from the per-session video sidecar
 # mov_{session_id}.doric:
@@ -20,7 +20,7 @@ DeviceModels:
       Monochrome USB 3.0 industrial camera (Sony IMX290 CMOS sensor) used for behavior video.
 
 # ── Device instances ───────────────────────────────────────────────────────────
-# Written as an ndx-franklab-novela CameraDevice by HanksLabNWBConverter, because Spyglass's
+# Written as an ndx-franklab-novela CameraDevice by SpyglassVideoInterface, because Spyglass's
 # VideoFile table reads the camera from the video's device. Spyglass parses the camera ID from
 # the name, so it must be "camera_device <id>"; camera_name is the name Spyglass shows.
 Devices:
@@ -32,13 +32,15 @@ Devices:
       Camera recording animal behavior during fiber photometry sessions.
       Triggered frame-by-frame by the Doric acquisition system via DIO04.
 
-BehaviorCamera:
-  camera_name: BehaviorCamera
-  frame_rate: 30.0
-  lens: unknown  # placeholder, see TODO above
-  meters_per_pixel: 0.0  # placeholder, see TODO above
-
 Behavior:
+  # Spyglass fields of each CameraDevice, linked to its Devices entry by device_metadata_key.
+  Video:
+    CameraDevice:
+      - device_metadata_key: behavior_camera
+        camera_name: BehaviorCamera
+        frame_rate: 30.0
+        lens: unknown  # placeholder, see TODO above
+        meters_per_pixel: 0.0  # placeholder, see TODO above
   ExternalVideos:
     behavior_video:
       name: BehaviorVideo
