@@ -19,6 +19,7 @@ dependencies = [
   "ndx-fiber-photometry",
   "ndx-ophys-devices",
   "ndx-structured-behavior @ git+https://github.com/rly/ndx-structured-behavior.git@main",
+  "ndx-franklab-novela",  # CameraDevice, required by Spyglass's VideoFile table
   "opencv-python-headless",
   "matplotlib",
   "networkx",  # tutorial state-transition graph
@@ -96,6 +97,11 @@ fixable = ["ALL"]
 [tool.ruff.lint.isort]
 relative-imports-order = "closest-to-furthest"
 known-first-party = ["hanks_lab_to_nwb"]
+
+[tool.uv]
+# ndx-franklab-novela 0.2.4 pins hdmf<5, but pynwb 4 needs hdmf>=6.1. CameraDevice reads and
+# writes correctly under hdmf 6, so the pin is overridden.
+override-dependencies = ["hdmf>=6.1"]
 
 [tool.uv.sources]
 ndx-structured-behavior = { path = "../ndx-structured-behavior", editable = true }
