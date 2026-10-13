@@ -40,3 +40,11 @@ Subject:
   description: >
     Rat implanted with optical fibers targeting striatal and prefrontal regions,
     injected with AAV9-CAG-dLight3.8 (UNC Vector Core) for dopamine imaging.
+
+# Row of the processing["tasks"] task table read by Spyglass's Task and TaskEpoch tables.
+# task_name is the Bpod protocol, set per session in convert_session.py. Task is shared by all
+# sessions in a Spyglass database, so the description must be the same for every bandit session.
+Task:
+  task_description: >-
+    Two-arm bandit task. The rat initiates at the center port and chooses the left or right
+    reward port; reward probabilities are fixed within a block and switch across blocks.
