@@ -72,6 +72,9 @@ Shared catalog rows are reused across sessions: the photometry devices (`Indicat
 
    Spyglass is pinned to a commit that combines two open pull requests; see
    [Spyglass version](#spyglass-version).
+
+   `ndx-fiber-photometry==0.2.4` and `ndx-ophys-devices==0.3.1` match the conversion
+   (`pyproject.toml`), so the files and the env use the same extension versions.
 3. Create your own `spyglass/dj_local_conf.json` (below).
 4. Check the setup: `python check_connection.py` from `spyglass/` in the
    `spyglass-photometry` env.
