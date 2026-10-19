@@ -1,9 +1,15 @@
 """Artifact time windows from the Hanks lab fiber-photometry preprocessing workflow.
 
 The preprocessing workflow records, per session, which spans of each region's signal are
-not usable. Those spans are written here as a ``TimeIntervals`` table named
-``fiber_photometry_artifacts_intervals`` so they can be read without scanning the traces
-for ``NaN`` runs.
+not usable. Those spans are written here to the file's ``invalid_times`` table, NWB's standard
+place for time intervals to be removed from analysis, so they can be read without scanning the
+traces for ``NaN`` runs.
+
+Each row carries one tag, ``"<location>_<artifact_type>"`` with the location in lower case and
+spaces replaced by underscores, e.g. ``"dorsolateral_striatum_pre_session_crop"``. Spyglass (with
+LorenFrankLab/spyglass#1349) ingests ``invalid_times`` into ``IntervalList``, naming each entry
+``"invalid_" + tag`` and grouping the rows that share a tag into one list, so the tag gives one
+``IntervalList`` entry per region and artifact type.
 
 Source: ``fp_data_{sessid}.pkl`` -> ``["fp_data"]["processing_info"]``. The lab records the
 same information by hand in ``Subj Info.txt`` under a ``Preprocessing Info:`` heading; where
@@ -57,7 +63,7 @@ these series are ``(n_samples, n_regions)`` with one column per region. A refere
 spans every region for its time range; the row's ``location`` column names the region whose
 column to take::
 
-    row = nwbfile.intervals["fiber_photometry_artifacts_intervals"][0]
+    row = nwbfile.invalid_times[0]
     ref = row["timeseries"].iloc[0][0]
     column = locations.index(row["location"].iloc[0])
     snippet = ref.timeseries.data[ref.idx_start : ref.idx_start + ref.count, column]
@@ -75,7 +81,7 @@ from pynwb.epoch import TimeIntervals
 
 from hanks_lab_to_nwb.utils.build_metadata import ATLAS_REGION_NAME
 
-TABLE_NAME = "fiber_photometry_artifacts_intervals"
+TABLE_NAME = "invalid_times"
 
 TABLE_DESCRIPTION = (
     "Time windows in which the fiber photometry signal of a given region is not usable, as "
@@ -114,7 +120,7 @@ def _normalize_windows(value) -> list[list[float]]:
 
 
 class FiberPhotometryArtifactInterface(BaseDataInterface):
-    """Write preprocessing artifact windows as a ``TimeIntervals`` table.
+    """Write preprocessing artifact windows to the file's ``invalid_times`` table.
 
     Runs after the response series have been added, since each row references them.
     """
@@ -263,10 +269,12 @@ class FiberPhotometryArtifactInterface(BaseDataInterface):
                 )
                 continue
             start_time, stop_time = snapped
+            location = ATLAS_REGION_NAME.get(region, region)
             table.add_interval(
                 start_time=start_time,
                 stop_time=stop_time,
-                location=ATLAS_REGION_NAME.get(region, region),
+                tags=[f"{location.lower().replace(' ', '_')}_{artifact_type}"],
+                location=location,
                 artifact_type=artifact_type,
                 timeseries=list(series_by_signal_key.values()),
             )
@@ -287,4 +295,6 @@ class FiberPhotometryArtifactInterface(BaseDataInterface):
             meanings.add_row(value=artifact_type, meaning=meaning)
         table.add_meanings_table(meanings)
 
-        nwbfile.add_time_intervals(table)
+        if nwbfile.invalid_times is not None:
+            raise ValueError(f"{type(self).__name__} writes invalid_times, which the NWBFile already has.")
+        nwbfile.invalid_times = table
