@@ -1,6 +1,12 @@
-# Conda environment for the DRAFT fiber-photometry ingestion schema
-# (LorenFrankLab/spyglass PR #1637, branch feature/fiber-photometry-ingestion ->
-# common_photometry), pinned to the commit this pipeline was tested against.
+# Conda environment for Spyglass with two open pull requests combined, pinned to the commit
+# this pipeline was tested against:
+#
+#   LorenFrankLab/spyglass#1637  fiber photometry tables (common_photometry), head 7a2b9a12b
+#   LorenFrankLab/spyglass#1349  IntervalList ingests the NWB invalid_times table, head 0c2656804
+#
+# Neither is merged, so the two heads are merged on the CatalystNeuro fork, branch
+# hanks-photometry-invalid-times (one conflict, in spyglass/common/__init__.py's __all__ list).
+# Re-pin to upstream once both are merged; see "Spyglass version" in README.md.
 #
 # After creating the env, upgrade pynwb/hdmf (see "Setup" in README.md):
 #
@@ -22,9 +28,9 @@ dependencies:
   - hdf5
   - git
   - pip:
-      - "git+https://github.com/LorenFrankLab/spyglass.git@7a2b9a12b224fd7aa3a7f1e002cb0f5f8210d984"
-      - ndx-fiber-photometry==0.2.3
-      - ndx-ophys-devices
+      - "git+https://github.com/catalystneuro/spyglass.git@49a1f7d224c1ddf2ac7c2037b2fe303b3d48dcae" # temporary pinned to commit `49a1f7d22` of the CatalystNeuro fork, which combines PRs #1637 and #1349
+      - ndx-fiber-photometry==0.2.4
+      - ndx-ophys-devices==0.3.1
       - pyyaml
       - jupyter
       - matplotlib
