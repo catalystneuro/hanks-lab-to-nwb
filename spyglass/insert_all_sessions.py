@@ -1,4 +1,5 @@
-"""Load every converted Hanks NWB file in a folder into Spyglass: the session, its fiber photometry and its video.
+"""Load every converted Hanks NWB file in a folder into Spyglass: the session (with its epoch and
+artifact intervals), its fiber photometry and its video.
 
 Each file's existing entry is deleted first, so this is the script to run after re-converting.
 To add one modality to sessions that are already loaded, run ``insert_fiber_photometry.py`` or

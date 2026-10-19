@@ -20,6 +20,7 @@ CONF = Path(__file__).with_name("dj_local_conf.json")
 dj.config.load(str(CONF))
 dj.conn(use_tls=False)
 
+from spyglass.common.common_interval import IntervalList  # noqa: E402
 from spyglass.common.common_lab import (  # noqa: E402
     Institution,
     Lab,
@@ -38,6 +39,9 @@ from spyglass.utils.nwb_helper_fn import get_nwb_copy_filename  # noqa: E402
 SESSION_TABLE_GROUPS = [
     [Institution, Lab, LabMember, LabTeam, Subject],  # parents Session's FKs require
     [Session, Session.Experimenter],
+    # The NWB epochs and invalid_times tables: epoch "01" (which TaskEpoch needs) and the fiber
+    # photometry artifact windows, "invalid_<region>_<artifact_type>".
+    [IntervalList],
 ]
 
 
@@ -77,7 +81,7 @@ def run_table_groups(table_groups: list, copy_file_name: str) -> None:
 
 
 def ensure_session(nwb_file_name: str) -> str:
-    """Register the file and its Session unless already there; return the copy's file name.
+    """Register the file, its Session and its IntervalList unless already there; return the copy's file name.
 
     The copy in the raw dir (stem + "_.nwb") is what Spyglass keys every table on. An already
     registered file is left alone, so a modality can be added without touching the others. After
@@ -95,7 +99,12 @@ def ensure_session(nwb_file_name: str) -> str:
     copy_nwb_link_raw_ephys(nwb_file_name, copy_file_name)
     Nwbfile().insert_from_relative_file_name(copy_file_name)
     run_table_groups(SESSION_TABLE_GROUPS, copy_file_name)
-    print(f"Session rows: {len(Session & {'nwb_file_name': copy_file_name})}")
+    key = {"nwb_file_name": copy_file_name}
+    print(f"Session rows: {len(Session & key)}")
+    names = (IntervalList & key).fetch("interval_list_name")
+    print(f"IntervalList rows: {len(names)}")
+    for name in sorted(n for n in names if n == "01" or n.startswith("invalid_")):
+        print(f"  {name}")
     return copy_file_name
 
 

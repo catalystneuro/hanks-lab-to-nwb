@@ -398,6 +398,19 @@ name collision with pynwb ≥ 4.0 by re-using the core namespace type.
   (`override-dependencies = ["hdmf>=6.1"]`). `CameraDevice` reads and writes correctly under
   pynwb 4.1 / hdmf 6.2.
 
+### FP artifact windows → `invalid_times`  *(changed 2026-10-19)*
+- `FiberPhotometryArtifactInterface` writes the windows to the file's `invalid_times` table, NWB's
+  standard table for intervals to be removed from analysis. Files converted before 2026-10-19 have
+  the same rows in a custom table, `intervals["fiber_photometry_artifacts_intervals"]`.
+- Columns are unchanged: `location`, `artifact_type` (with its `MeaningsTable`) and `timeseries`,
+  referencing the twelve processed series.
+- Each row has one tag, `"<location>_<artifact_type>"` with the location in lower case and spaces
+  replaced by underscores, e.g. `"dorsolateral_striatum_pre_session_crop"`. Spyglass with
+  LorenFrankLab/spyglass#1349 ingests `invalid_times` into `IntervalList` as `"invalid_" + tag`,
+  merging the rows that share a tag, so each region and artifact type becomes one `IntervalList`
+  entry, e.g. `"invalid_dorsolateral_striatum_pre_session_crop"`, with no custom loader code
+  (`spyglass/README.md`). The `invalid_` prefix is set by Spyglass; the rest is the tag.
+
 ---
 
 ## Open Questions

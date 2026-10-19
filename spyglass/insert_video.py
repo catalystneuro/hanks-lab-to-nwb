@@ -1,10 +1,11 @@
 """Insert the behavior video of one or more converted Hanks NWB files into Spyglass.
 
-Spyglass only fills VideoFile for a TaskEpoch, so this fills CameraDevice, IntervalList (the
-session's one epoch, from the NWB ``epochs`` table), TaskEpoch (which also fills Task, from the
-``processing["tasks"]`` task table) and then VideoFile. The session is registered first if it is
-not in the database yet (see ``common.ensure_session``). A session that already has a VideoFile
-row is skipped; use ``insert_all_sessions.py`` to reload a re-converted file.
+Spyglass only fills VideoFile for a TaskEpoch, so this fills CameraDevice, TaskEpoch (which also
+fills Task, from the ``processing["tasks"]`` task table) and then VideoFile. The epoch TaskEpoch
+points to (``IntervalList`` ``"01"``, from the NWB ``epochs`` table) is inserted with the session,
+which is registered first if it is not in the database yet (see ``common.ensure_session``). A
+session that already has a VideoFile row is skipped; use ``insert_all_sessions.py`` to reload a
+re-converted file.
 
 Arguments are file names already in the Spyglass raw dir, or paths to converted NWB files anywhere
 on disk (symlinked into the raw dir, not copied):
@@ -26,12 +27,11 @@ from common import (
 
 from spyglass.common.common_behav import VideoFile
 from spyglass.common.common_device import CameraDevice
-from spyglass.common.common_interval import IntervalList
 from spyglass.common.common_task import Task, TaskEpoch
 
 TABLE_GROUPS = [
     [CameraDevice],
-    [IntervalList, TaskEpoch],
+    [TaskEpoch],
     [VideoFile],
 ]
 
