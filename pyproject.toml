@@ -16,9 +16,9 @@ classifiers = [
 dependencies = [
   "neuroconv @ git+https://github.com/catalystneuro/neuroconv.git@main",
   "nwbinspector",
-  "ndx-fiber-photometry",
-  "ndx-ophys-devices",
-  "ndx-structured-behavior @ git+https://github.com/rly/ndx-structured-behavior.git@main",
+  "ndx-fiber-photometry==0.2.4",
+  "ndx-ophys-devices==0.3.1",
+  "ndx-structured-behavior==0.2.0",
   "ndx-franklab-novela",  # CameraDevice, required by Spyglass's VideoFile table
   "opencv-python-headless",
   "matplotlib",
