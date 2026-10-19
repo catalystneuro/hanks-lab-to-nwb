@@ -29,7 +29,7 @@ Dopamine signals recorded simultaneously from up to 4 brain regions via Doric FP
 | FP raw (LockIn) | Doric HDF5 `.doric` | `Session_{sessid}.doric` | `DoricFiberPhotometryInterface` |
 | FP processed (dFF) | Python pickle `.pkl` | `fp_data_{sessid}.pkl` | `ProcessedFiberPhotometryInterface` |
 | Behavioral data | Python pickle `.pkl` | `sess_data_{sessid}.pkl` | `BpodBehaviorInterface` (both tasks, protocol auto-detected) |
-| Video | `.mp4` | `mov_{sessid}.mp4` | `ExternalVideoInterface` (follow-up PR) |
+| Video | `.mp4` | `mov_{sessid}.mp4` | `SpyglassVideoInterface` (subclass of `ExternalVideoInterface`) |
 
 ---
 
@@ -380,6 +380,23 @@ name collision with pynwb ≥ 4.0 by re-using the core namespace type.
   so the path resolves when the mp4 is uploaded beside the `.nwb` (NWB requires `external_file` to
   be relative to the NWB file). Frame timestamps come from the companion `mov_{sessid}.doric`
   behavior-camera clock, verified equal for all four sessions.
+- `SpyglassVideoInterface` (`interfaces/spyglass_video_interface.py`) subclasses NeuroConv's
+  `ExternalVideoInterface`. It reads the frame times from the `.doric` sidecar, and adds the camera
+  as an `ndx-franklab-novela` `CameraDevice` named `camera_device 0` (`camera_name="BehaviorCamera"`,
+  frame rate 30 from the `.doric` sidecar) before calling `ExternalVideoInterface.add_to_nwbfile`,
+  which reuses the device by name. Spyglass's `VideoFile` table reads the camera from the video's
+  device. The Spyglass-only fields are in `video.yaml` under `Behavior.Video.CameraDevice`, linked to
+  the `Devices` entry by `device_metadata_key`. Lens and pixel size are placeholders until the lab
+  answers (`open_questions.md`, section 3).
+- Spyglass only fills `VideoFile` for a `TaskEpoch`, so `SpyglassEpochInterface`
+  (`interfaces/spyglass_epoch_interface.py`) writes one epoch tagged `"01"` and a `processing["tasks"]`
+  `task_table`. The epoch runs from the first to the last frame time in `mov_{sessid}.doric`. The
+  task table has one row per `metadata["Tasks"]` entry: the Bpod protocol as `task_name`, the shared
+  description from the task YAML, `camera_id=[0]` and `task_epochs=[1]`. A session without video
+  gets neither, since Spyglass's photometry tables do not use them.
+- `ndx-franklab-novela` 0.2.4 pins `hdmf<5`; `pyproject.toml` overrides it for uv
+  (`override-dependencies = ["hdmf>=6.1"]`). `CameraDevice` reads and writes correctly under
+  pynwb 4.1 / hdmf 6.2.
 
 ---
 

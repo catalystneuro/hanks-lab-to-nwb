@@ -1,17 +1,14 @@
 """NWBConverter for Hanks lab fiber photometry dataset."""
 
-import h5py
-import numpy as np
 from neuroconv import NWBConverter
-from neuroconv.datainterfaces import (
-    DoricFiberPhotometryInterface,
-    ExternalVideoInterface,
-)
+from neuroconv.datainterfaces import DoricFiberPhotometryInterface
 
 from hanks_lab_to_nwb.interfaces import (
     BpodBehaviorInterface,
     FiberPhotometryArtifactInterface,
     HanksLabProcessedFiberPhotometryInterface,
+    SpyglassEpochInterface,
+    SpyglassVideoInterface,
 )
 
 
@@ -21,7 +18,8 @@ class HanksLabNWBConverter(NWBConverter):
     data_interface_classes = dict(
         DoricFPIsosbestic=DoricFiberPhotometryInterface,
         DoricFPSignal=DoricFiberPhotometryInterface,
-        Video=ExternalVideoInterface,
+        Video=SpyglassVideoInterface,
+        Epoch=SpyglassEpochInterface,
         # Processed signals — one entry per signal type (all share the same class).
         ProcessedFP_RawIso=HanksLabProcessedFiberPhotometryInterface,
         ProcessedFP_RawLig=HanksLabProcessedFiberPhotometryInterface,
@@ -38,12 +36,3 @@ class HanksLabNWBConverter(NWBConverter):
         Behavior=BpodBehaviorInterface,
         FiberPhotometryArtifacts=FiberPhotometryArtifactInterface,
     )
-
-    def temporally_align_data_interfaces(self, metadata=None, conversion_options=None):
-        if "Video" not in self.data_interface_objects:
-            return
-        mp4_path = self.data_interface_objects["Video"].source_data["file_paths"][0]
-        doric_path = mp4_path.with_suffix(".doric")
-        with h5py.File(doric_path, "r") as f:
-            timestamps = np.asarray(f["DataAcquisition/BehaviorCamera/Video/Series0001/DMK-33UX290/Time"][:])
-        self.data_interface_objects["Video"].set_aligned_timestamps([timestamps])
