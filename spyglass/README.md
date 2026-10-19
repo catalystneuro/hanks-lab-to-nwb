@@ -1,19 +1,19 @@
-# Spyglass ingestion for fiber photometry and video
+# Spyglass ingestion for fiber photometry, artifact intervals and video
 
-Loads the fiber photometry and the behavior video in the converted Hanks lab NWB files into a local
+Loads the fiber photometry, its artifact intervals and the behavior video in the converted Hanks lab NWB files into a local
 [Spyglass](https://github.com/LorenFrankLab/spyglass) (DataJoint) database, using the draft
 fiber-photometry tables from
 [LorenFrankLab/spyglass#1637](https://github.com/LorenFrankLab/spyglass/pull/1637)
-(`spyglass.common.common_photometry`). Bpod trials and states and the photometry artifact
-intervals stay in the NWB files.
+(`spyglass.common.common_photometry`). Bpod trials and states stay in the NWB files.
 
 | File | Purpose |
 |---|---|
 | `docker-compose.yml` | Local MySQL (`spyglass-hanks-db`, host port 3307, named volume) |
 | `spyglass-photometry-env.yaml` | Conda env with Spyglass pinned to PR #1637 commit `7a2b9a12b` |
 | `check_connection.py` | Checks the database connection and that Spyglass loads |
-| `insert_all_sessions.py` | Loads every `.nwb` file in a folder completely: deletes each file's existing entry, registers the session, then inserts photometry and video. Run this after re-converting. |
+| `insert_all_sessions.py` | Loads every `.nwb` file in a folder completely: deletes each file's existing entry, registers the session, then inserts photometry, artifact intervals and video. Run this after re-converting. |
 | `insert_fiber_photometry.py` | Inserts only the photometry tables and their device catalog. |
+| `insert_intervals.py` | Inserts only the photometry artifact windows, one `IntervalList` row per region and artifact type. |
 | `insert_video.py` | Inserts only the video: `CameraDevice`, the epoch (`IntervalList`), `TaskEpoch` (and `Task`) and `VideoFile`. |
 | `common.py` | Shared by the loaders: database connection, staging files into the raw dir, and registering the session (`Nwbfile`, `Subject`, `Lab`/`Institution`, `Session`). |
 | `tutorials/spyglass_fiber_photometry_tutorial.ipynb` | Tutorial, executed with outputs |
@@ -31,6 +31,15 @@ Per session (one converted NWB file):
 - `FiberPhotometryResponseSeries.Fiber`: 4 rows per series, mapping each data column to
   its `FiberPhotometryConfig` row.
 - An `IntervalList` entry per series (`"<series name> valid times"`).
+- `IntervalList` `"fiber photometry artifacts <region> <artifact_type>"`: one row per region and
+  artifact type (`dropout`, `independent_range_edge`, `pre_session_crop`) present in the NWB table
+  `intervals["fiber_photometry_artifacts_intervals"]`, holding those windows in time order
+  (`pipeline` is `fiber_photometry`). `IntervalList` has no column for the type, so it is part of
+  the name; a region's windows of every type are the rows matching
+  `"fiber photometry artifacts <region> %"`. Spyglass's ingestion reads only `epochs` (and `invalid_times` with
+  [LorenFrankLab/spyglass#1349](https://github.com/LorenFrankLab/spyglass/pull/1349)), so
+  `insert_intervals.py` reads the table and inserts these rows itself. Which response series
+  each window references stays in the NWB file.
 - `IntervalList` `"01"`: the session's one epoch, from the NWB `epochs` table.
 - `TaskEpoch`: 1 row linking epoch 1 to the task and the camera, from the
   `processing["tasks"]` task table.
@@ -117,7 +126,7 @@ is symlinked into the raw dir (the files are ~1.5 GB, so they are not copied). I
 previous `Nwbfile` entry first, which removes everything loaded for that session, so it can be
 re-run and is the script to use after re-converting.
 
-`insert_fiber_photometry.py` and `insert_video.py` take one or more file paths (or bare file
+`insert_fiber_photometry.py`, `insert_intervals.py` and `insert_video.py` take one or more file paths (or bare file
 names already in the raw dir) and insert one
 modality. They register the session only if it is missing and skip a session that already has
 that modality's rows, so either can be run on its own or added to sessions loaded by the other.
