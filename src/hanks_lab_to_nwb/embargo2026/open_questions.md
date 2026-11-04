@@ -14,6 +14,10 @@
 ⚠️ **Subject 238 DOB** **[required]**: lab reported `2025-05-0` — please confirm the correct date
 (currently using `2025-05-01` as a placeholder).
 
+**Strain supplier** **[optional]**: which vendor supplied the Long Evans rats (e.g. Charles River,
+Envigo)? Long-Evans RRIDs are per supplier, so the strain is left out of the external resources
+(`metadata/external_resources.yaml`) until this is known.
+
 ---
 
 ## 2. Session Metadata ✅ resolved
