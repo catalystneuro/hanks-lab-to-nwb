@@ -1,21 +1,23 @@
-# Spyglass ingestion for fiber photometry, artifact intervals and video
+# Spyglass ingestion for fiber photometry, artifact intervals, video and Bpod behavior
 
-Loads the fiber photometry, its artifact intervals and the behavior video in the converted Hanks
-lab NWB files into a local [Spyglass](https://github.com/LorenFrankLab/spyglass) (DataJoint)
+Loads the fiber photometry, its artifact intervals, the behavior video and the Bpod behavior in the
+converted Hanks lab NWB files into a local [Spyglass](https://github.com/LorenFrankLab/spyglass) (DataJoint)
 database. It needs two Spyglass pull requests that are not merged yet: the draft fiber-photometry
 tables from [LorenFrankLab/spyglass#1637](https://github.com/LorenFrankLab/spyglass/pull/1637)
 (`spyglass.common.common_photometry`), and the ingestion of the NWB `invalid_times` table into
-`IntervalList` from [LorenFrankLab/spyglass#1349](https://github.com/LorenFrankLab/spyglass/pull/1349).
-See [Spyglass version](#spyglass-version). Bpod trials and states stay in the NWB files.
+`IntervalList` and the structured-behavior tables (`spyglass.common.common_task_rec`) from
+[LorenFrankLab/spyglass#1349](https://github.com/LorenFrankLab/spyglass/pull/1349).
+See [Spyglass version](#spyglass-version).
 
 | File | Purpose |
 |---|---|
 | `docker-compose.yml` | Local MySQL (`spyglass-hanks-db`, host port 3307, named volume) |
 | `spyglass-photometry-env.yaml` | Conda env with Spyglass pinned to commit `49a1f7d22` of the CatalystNeuro fork, which combines PRs #1637 and #1349 |
 | `check_connection.py` | Checks the database connection and that Spyglass loads |
-| `insert_all_sessions.py` | Loads every `.nwb` file in a folder completely: deletes each file's existing entry, registers the session, then inserts photometry and video. Run this after re-converting. |
+| `insert_all_sessions.py` | Loads every `.nwb` file in a folder completely: deletes each file's existing entry, registers the session, then inserts photometry, video and Bpod behavior. Run this after re-converting. |
 | `insert_fiber_photometry.py` | Inserts only the photometry tables and their device catalog. |
 | `insert_video.py` | Inserts only the video: `CameraDevice`, `TaskEpoch` (and `Task`) and `VideoFile`. |
+| `insert_behavior.py` | Inserts only the Bpod behavior: `TaskRecordingTypes` with its parts, and `TaskRecording`. |
 | `common.py` | Shared by the loaders: database connection, staging files into the raw dir, and registering the session (`Nwbfile`, `Subject`, `Lab`/`Institution`, `Session`, and `IntervalList` from the NWB `epochs` and `invalid_times` tables). |
 | `tutorials/spyglass_fiber_photometry_tutorial.ipynb` | Tutorial, executed with outputs |
 
@@ -48,6 +50,16 @@ Per session (one converted NWB file):
   `processing["tasks"]` task table.
 - `VideoFile`: 1 row pointing at the `BehaviorVideo` `ImageSeries`. Spyglass only fills
   `VideoFile` for a `TaskEpoch`, which is why the files carry an epoch and a task table.
+- `TaskRecordingTypes`: 1 row with the descriptions of the task's action, event and state types,
+  from the `ndx-structured-behavior` `Task` in `lab_meta_data["task"]`. Its parts hold one row per
+  type: `ActionTypes` (6), `EventTypes` (3) and `StateTypes` (24 in the `ToneCatDelayResp`
+  sessions, 17 in the `ClassicRLTasks` sessions), keyed by the type table's row `id`. `Arguments`
+  is empty because the files have no `task_arguments` table yet (`bpod_task_arguments_plan.md`).
+- `TaskRecording`: 1 row with the object IDs of the recorded `actions`, `events` and `states` tables
+  (`acquisition["task_recording"]`) and of the file's `trials` table. The rows stay in the file;
+  `(TaskRecording & key).fetch1_dataframe("states")` reads one table. Its `state_type`,
+  `event_type` and `action_type` columns come back as one-row DataFrames from the type tables, so
+  take `["state_name"].iloc[0]` (or the matching name column) to get the name.
 
 Shared catalog rows are reused across sessions: the photometry devices (`Indicator`,
 `ExcitationSource`, `Photodetector`, `OpticalFilter`, `OpticalFiber`), `CameraDevice`
@@ -131,9 +143,10 @@ is symlinked into the raw dir (the files are ~1.5 GB, so they are not copied). I
 previous `Nwbfile` entry first, which removes everything loaded for that session, so it can be
 re-run and is the script to use after re-converting.
 
-`insert_fiber_photometry.py` and `insert_video.py` take one or more file paths (or bare file
-names already in the raw dir) and insert one modality. They register the session only if it is missing and skip a session that already has
-that modality's rows, so either can be run on its own or added to sessions loaded by the other.
+`insert_fiber_photometry.py`, `insert_video.py` and `insert_behavior.py` take one or more file paths
+(or bare file names already in the raw dir) and insert one modality. They register the session only
+if it is missing and skip a session that already has that modality's rows, so each can be run on its
+own or added to sessions loaded by the others.
 Because they leave a registered file alone, they do not pick up a re-converted file; use
 `insert_all_sessions.py` for that.
 
@@ -180,7 +193,7 @@ commit `49a1f7d22`. That commit merges the heads of two open pull requests:
 | Pull request | Head | What this pipeline uses |
 |---|---|---|
 | [LorenFrankLab/spyglass#1637](https://github.com/LorenFrankLab/spyglass/pull/1637) | `7a2b9a12b` | the fiber photometry tables (`common_photometry`) |
-| [LorenFrankLab/spyglass#1349](https://github.com/LorenFrankLab/spyglass/pull/1349) | `0c2656804` | `IntervalList` ingesting the NWB `invalid_times` table |
+| [LorenFrankLab/spyglass#1349](https://github.com/LorenFrankLab/spyglass/pull/1349) | `0c2656804` | `IntervalList` ingesting the NWB `invalid_times` table, and the structured-behavior tables (`common_task_rec`) |
 
 The merge had one conflict, in the `__all__` list of `spyglass/common/__init__.py`, resolved by
 keeping both sides. It also drops a file named `-` at the repository root, a `pip freeze` listing
@@ -212,5 +225,5 @@ Outstanding issues:
 `insert_sessions()` always runs `populate_all_common()`, which tries every common table
 (ephys, position, video, optogenetics, ...) and imports the spike-sorting/decoding
 modules. Most of that does not apply to this dataset. The loader instead runs Spyglass's own
-`single_transaction_make()` over only the session, `IntervalList`, photometry and video tables and
-their parents, so nothing unrelated is attempted.
+`single_transaction_make()` over only the session, `IntervalList`, photometry, video and
+structured-behavior tables and their parents, so nothing unrelated is attempted.
