@@ -411,6 +411,20 @@ name collision with pynwb ≥ 4.0 by re-using the core namespace type.
   entry, e.g. `"invalid_dorsolateral_striatum_pre_session_crop"`, with no custom loader code
   (`spyglass/README.md`). The `invalid_` prefix is set by Spyglass; the rest is the tag.
 
+### External resources (HERD)  *(added 2026-11-04)*
+- NeuroConv (main, with pynwb >= 4.0) writes ontology references in-file under
+  `/general/external_resources` for the terms in `metadata["ExternalResources"]`. Nothing is
+  inferred. All terms are in `metadata/external_resources.yaml`, shared by both tasks:
+  - `institution`: University of California, Davis -> `ror:05rrcem69`.
+  - `experimenter`: Stevenson, Tanner -> `orcid:0000-0002-4016-4099`.
+  - `species`: *Rattus norvegicus* -> `NCBITaxon:10116`.
+  - `anatomical_structures`: the `FiberPhotometryTable` locations. Nucleus accumbens ->
+    `UBERON:0001882`, Prelimbic area -> `UBERON:8440032`. UBERON has no dorsolateral, dorsomedial
+    or tail-of-striatum terms, so DLS, DMS and TS share dorsal striatum (`UBERON:0005382`).
+  - `strain` is left out until the supplier is known (Long-Evans RRIDs are per supplier).
+- Verified on stub conversions of all four sessions: 7 references per file (1 species, 4
+  locations, 1 experimenter, 1 institution).
+
 ---
 
 ## Open Questions
