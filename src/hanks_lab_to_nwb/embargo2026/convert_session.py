@@ -92,6 +92,7 @@ def session_to_nwb(
     _metadata_dir = Path(__file__).parent / "metadata"
     _fp_yaml = load_dict_from_file(_metadata_dir / "fiber_photometry.yaml")
     _video_yaml = load_dict_from_file(_metadata_dir / "video.yaml")
+    _external_resources_yaml = load_dict_from_file(_metadata_dir / "external_resources.yaml")
     iso_streams = _fp_yaml["FiberPhotometry"]["isosbestic_series"]["stream_names"]
     sig_streams = _fp_yaml["FiberPhotometry"]["signal_series"]["stream_names"]
 
@@ -163,6 +164,8 @@ def session_to_nwb(
 
     metadata = dict_deep_update(metadata, _fp_yaml, append_list=False)
     metadata = dict_deep_update(metadata, _video_yaml)
+    # Ontology terms (HERD); run_conversion writes them under /general/external_resources.
+    metadata = dict_deep_update(metadata, _external_resources_yaml)
 
     metadata["Subject"]["subject_id"] = subject_id
     metadata["Subject"].update(_SUBJECT_METADATA[int(subject_id)])
