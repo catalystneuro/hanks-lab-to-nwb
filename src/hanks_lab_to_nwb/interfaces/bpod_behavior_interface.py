@@ -44,6 +44,7 @@ from ndx_structured_behavior import (
 from neuroconv.basedatainterface import BaseDataInterface
 from neuroconv.utils import DeepDict, load_dict_from_file
 from pynwb import NWBFile
+from pynwb.device import Device, DeviceModel
 
 _LIST_DTYPES: frozenset[str] = frozenset({"list_str", "list_float", "list_abs_time"})
 
@@ -306,7 +307,12 @@ class BpodBehaviorInterface(BaseDataInterface):
     def get_metadata(self) -> DeepDict:
         metadata = super().get_metadata()
         metadata["Behavior"] = dict(
-            Device=dict(name="bpod", manufacturer="Sanworks", description="Bpod State Machine r2"),
+            DeviceModel=dict(
+                name="Bpod State Machine r2",
+                manufacturer="Sanworks",
+                description="State machine that controls the behavioral task and records its events.",
+            ),
+            Device=dict(name="bpod", description="Bpod State Machine r2"),
             StateTypesTable=dict(description="Names of the Bpod states in the task."),
             StatesTable=dict(description="Start and stop times of each Bpod state occurrence, Doric-clock seconds."),
             EventTypesTable=dict(description="Names of the animal-triggered port contact events."),
@@ -337,13 +343,17 @@ class BpodBehaviorInterface(BaseDataInterface):
             "TrialsTable",
         )
         properties = {key: dict(type="object", properties=dict(description=dict(type="string"))) for key in table_keys}
-        properties["Device"] = dict(
+        properties["DeviceModel"] = dict(
             type="object",
             properties=dict(
                 name=dict(type="string"),
                 manufacturer=dict(type="string"),
                 description=dict(type="string"),
             ),
+        )
+        properties["Device"] = dict(
+            type="object",
+            properties=dict(name=dict(type="string"), description=dict(type="string")),
         )
         metadata_schema["properties"]["Behavior"] = dict(type="object", properties=properties)
         return metadata_schema
@@ -646,5 +656,11 @@ class BpodBehaviorInterface(BaseDataInterface):
 
         nwbfile.trials = trials
 
+        # The manufacturer is stated on a DeviceModel linked from the Device (pynwb 4 deprecated
+        # Device.manufacturer).
         if "Device" in beh_meta:
-            nwbfile.create_device(**beh_meta["Device"])
+            model = None
+            if "DeviceModel" in beh_meta:
+                model = DeviceModel(**beh_meta["DeviceModel"])
+                nwbfile.add_device_model(model)
+            nwbfile.add_device(Device(**beh_meta["Device"], model=model))
