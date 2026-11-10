@@ -192,15 +192,14 @@ Handled automatically:
   `invalid_times` table
 - per-fiber `comments`, written to the FP table's `notes` column
 
-New or renamed processed signals (e.g. a z-score). The list of 12 is fixed in three places, which
-must stay in sync:
+New or renamed processed signals (e.g. a z-score). Add or change the signal in three places:
 
-1. `_PROCESSED_SIGNALS` in `convert_session.py`
-2. `data_interface_classes` in `nwbconverter.py`
-3. a series entry in `metadata/fiber_photometry.yaml`
+1. `PROCESSED_SIGNALS` in `nwbconverter.py`, the one list of signals in the code
+2. a series entry in `metadata/fiber_photometry.yaml`, with its name and description
+3. a line in `_SERIES_REGION_DESCRIPTION_TEMPLATES` in `utils/build_metadata.py`
 
 A signal in the pickle that is not listed is left out of the file without a message. To find one,
-compare the keys of `fp_data["fp_data"]["processed_signals"][region]` with `_PROCESSED_SIGNALS`. A
+compare the keys of `fp_data["fp_data"]["processed_signals"][region]` with `PROCESSED_SIGNALS`. A
 listed signal that is missing from the pickle raises a `KeyError`.
 
 Changed parameters (`pre_lpf`, `baseline_lpf`, `iso_bands`, the decimation factor). These are not
