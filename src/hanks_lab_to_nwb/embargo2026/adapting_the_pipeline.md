@@ -1,8 +1,8 @@
 # Adapting the conversion when the experiment changes
 
-This guide covers what to edit when a session, the rig, the task or the preprocessing changes. For
-each kind of change it says what the conversion handles on its own, what you have to edit, and
-what happens if you don't.
+This guide covers what to edit when a session, the rig, the task or the preprocessing changes,
+and how to start a new experiment. For each kind of change it says what the conversion handles on
+its own, what you have to edit, and what happens if you don't.
 
 Some mistakes stop the conversion with an error. Others produce a file that looks fine and is
 wrong. Those are collected in
@@ -276,6 +276,36 @@ a single mp4 and sets `camera_id` to `[0]`.
 | New experimenter, lab, institution, keywords or publication | `metadata/general.yaml`. For a new experimenter or institution also add the ORCID or ROR in `metadata/external_resources.yaml` |
 | The rig moves to another time zone | `timezone` in `metadata/sessions.yaml` |
 | The source files are named differently | The file names built in `session_to_nwb` (`convert_session.py`) and the `sess_data_*.pkl` pattern in `get_session_ids` (`convert_all_sessions.py`) |
+
+## Starting a new experiment
+
+Everything specific to this experiment is in the `embargo2026/` folder. The code that reads the
+source files is in `interfaces/` and `utils/` and is shared. A new experiment recorded on the same
+systems (Doric fiber photometry, Bpod, the lab's `fp_data` and `sess_data` pickles) gets its own
+folder and reuses the shared code.
+
+1. Copy `src/hanks_lab_to_nwb/embargo2026/` to a new folder next to it, e.g.
+   `src/hanks_lab_to_nwb/<experiment>/`.
+2. In the copy, replace `hanks_lab_to_nwb.embargo2026` with `hanks_lab_to_nwb.<experiment>` in the
+   import lines of `__init__.py`, `convert_session.py` and `convert_all_sessions.py`.
+3. Edit the files in the copy's `metadata/` folder:
+   - `general.yaml`: experiment description, experimenter, keywords, subject description
+   - `sessions.yaml`: the tasks and their Bpod protocols, the subjects, the regions and the
+     sessions. Remove the entries of the old experiment.
+   - one `<task>.yaml` per task, replacing `wm_task.yaml` and `bandit_task.yaml`
+   - `bpod_behavior_columns.yaml`: the events, actions and per-trial columns of the new tasks
+   - `fiber_photometry.yaml` and `video.yaml`, if the hardware differs
+   - `external_resources.yaml`, if the institution, experimenter, species or regions differ
+4. Replace `conversion_notes.md` and `open_questions.md` in the copy with notes on the new
+   experiment.
+5. Follow [After any change](#after-any-change).
+
+The sections above apply to the new folder in the same way. Changes to the files in `interfaces/`
+and `utils/` affect every experiment, so convert a session of each one after editing them.
+
+A different acquisition system or file format needs a new interface. See the
+[NeuroConv documentation](https://neuroconv.readthedocs.io/) for the interfaces it already
+provides.
 
 ## After any change
 
