@@ -276,7 +276,7 @@ the minicube of one Doric channel (see *Fiber Photometry Hardware*):
 | AIN03, AIN04 | iFMC4 | 410-420 nm (415.0 / 10 nm) | 460-490 nm (475.0 / 30 nm) |
 
 The implanted fibers are patched onto these channels, and the patching differs between sessions,
-even for the same rat (`_SESSION_AIN_TO_REGION` in `convert_session.py`):
+even for the same rat (`ain_to_region` in `metadata/sessions.yaml`):
 
 | Session | Subject | AIN01 | AIN02 | AIN03 | AIN04 |
 |---|---|---|---|---|---|
