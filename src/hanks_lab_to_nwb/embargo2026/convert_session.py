@@ -10,15 +10,11 @@ from neuroconv.utils import dict_deep_update, load_dict_from_file
 from hanks_lab_to_nwb.embargo2026 import HanksLabNWBConverter
 from hanks_lab_to_nwb.utils import patch_fp_metadata_for_session
 
-_TZ = ZoneInfo("America/Los_Angeles")
+_METADATA_DIR = Path(__file__).parent / "metadata"
 
-# AIN channel → brain region per session (from Subj Info.txt)
-_SESSION_AIN_TO_REGION = {
-    119247: {1: "DLS", 2: "PL", 3: "DMS", 4: "NAc"},  # subj 400, WM
-    119974: {1: "NAc", 2: "PL", 3: "DLS", 4: "DMS"},  # subj 400, Bandit
-    124770: {1: "DMS", 2: "DLS", 3: "TS", 4: "NAc"},  # subj 238, WM
-    124949: {1: "NAc", 2: "DMS", 3: "TS", 4: "DLS"},  # subj 238, Bandit
-}
+# Per-session and per-subject values (task, AIN channel -> brain region, subject details, time zone)
+# live in this file. Edit it to add a session; see the comments inside.
+SESSIONS_FILE_PATH = _METADATA_DIR / "sessions.yaml"
 
 # Processed signal registry: (converter_key, pkl_signal_key, metadata_key)
 _PROCESSED_SIGNALS = [
@@ -36,29 +32,14 @@ _PROCESSED_SIGNALS = [
     ("ProcessedFP_DFFBaselineFband", "dff_iso_baseline_fband", "dff_baseline_fband_series"),
 ]
 
-# session → task-specific metadata YAML (determines session_description and keywords)
-_SESSION_TASK_TYPE = {
-    119247: "wm_task",
-    119974: "bandit_task",
-    124770: "wm_task",
-    124949: "bandit_task",
-}
 
-_SUBJECT_METADATA = {
-    400: dict(
-        sex="M",
-        strain="Long Evans",
-        date_of_birth=datetime.datetime(2024, 3, 19, tzinfo=_TZ),
-        weight="530 g",
-    ),
-    238: dict(
-        sex="M",
-        strain="Long Evans",
-        # Confirmed by the lab 2026-09-23; the earlier "2025-05-0" in Subj Info.txt was truncated.
-        date_of_birth=datetime.datetime(2025, 5, 20, tzinfo=_TZ),
-        weight="540 g",
-    ),
-}
+def load_session_registry() -> dict:
+    """Return the session registry stored in metadata/sessions.yaml.
+
+    Keys: ``timezone``, ``tasks`` (task name -> Bpod protocol), ``subjects`` (subject ID -> sex,
+    strain, date of birth, weight) and ``sessions`` (session ID -> task and AIN channel -> region).
+    """
+    return load_dict_from_file(SESSIONS_FILE_PATH)
 
 
 def session_to_nwb(
@@ -67,14 +48,18 @@ def session_to_nwb(
     output_dir_path: str | Path,
     stub_test: bool = False,
 ):
-    """Convert one Hanks lab session to NWB (FP raw data only).
+    """Convert one Hanks lab session to NWB.
+
+    Writes the Bpod behavior, the processed fiber photometry series and their artifact windows,
+    plus the raw fiber photometry acquisition when ``Session_{session_id}.doric`` is present and
+    the behavior video when ``mov_{session_id}.mp4`` is present.
 
     Parameters
     ----------
     session_id :
-        Integer session ID (e.g. 119974). Must be in _SESSION_AIN_TO_REGION.
-        Used to locate Session_{session_id}.doric, fp_data_{session_id}.pkl,
-        and sess_data_{session_id}.pkl.
+        Integer session ID (e.g. 119974). Used to locate Session_{session_id}.doric,
+        fp_data_{session_id}.pkl, sess_data_{session_id}.pkl and mov_{session_id}.mp4.
+        The session and its subject must be registered in metadata/sessions.yaml.
     data_dir_path :
         Directory containing all source files for this session.
     output_dir_path :
@@ -89,17 +74,48 @@ def session_to_nwb(
         output_dir_path = output_dir_path / "nwb_stub"
     output_dir_path.mkdir(parents=True, exist_ok=True)
 
-    _metadata_dir = Path(__file__).parent / "metadata"
-    _fp_yaml = load_dict_from_file(_metadata_dir / "fiber_photometry.yaml")
-    _video_yaml = load_dict_from_file(_metadata_dir / "video.yaml")
-    _external_resources_yaml = load_dict_from_file(_metadata_dir / "external_resources.yaml")
+    # Look the session up in the registry before reading any large file, so a session that was
+    # not registered fails immediately with a message saying what to add.
+    registry = load_session_registry()
+    if session_id not in registry["sessions"]:
+        raise ValueError(f"Session {session_id} is not registered. Add it under 'sessions' in {SESSIONS_FILE_PATH}.")
+    session_info = registry["sessions"][session_id]
+    ain_to_region = session_info["ain_to_region"]
+    task_type = session_info["task"]
+    timezone = ZoneInfo(registry["timezone"])
+
+    with open(data_dir_path / f"sess_data_{session_id}.pkl", "rb") as f:
+        sess_df = pickle.load(f)
+
+    subject_id = int(sess_df["subjid"].iloc[0])
+    if subject_id not in registry["subjects"]:
+        raise ValueError(
+            f"Subject {subject_id} of session {session_id} is not registered. "
+            f"Add it under 'subjects' in {SESSIONS_FILE_PATH}."
+        )
+    subject_metadata = dict(registry["subjects"][subject_id])
+    subject_metadata["date_of_birth"] = datetime.datetime.fromisoformat(subject_metadata["date_of_birth"]).replace(
+        tzinfo=timezone
+    )
+
+    protocol = sess_df["protocol"].iloc[0]
+    expected_protocol = registry["tasks"][task_type]["protocol"]
+    if protocol != expected_protocol:
+        raise ValueError(
+            f"Session {session_id} is registered as '{task_type}' (Bpod protocol '{expected_protocol}') but "
+            f"sess_data_{session_id}.pkl was recorded with protocol '{protocol}'. "
+            f"Correct the session's task in {SESSIONS_FILE_PATH}."
+        )
+
+    _fp_yaml = load_dict_from_file(_METADATA_DIR / "fiber_photometry.yaml")
+    _video_yaml = load_dict_from_file(_METADATA_DIR / "video.yaml")
+    _external_resources_yaml = load_dict_from_file(_METADATA_DIR / "external_resources.yaml")
     iso_streams = _fp_yaml["FiberPhotometry"]["isosbestic_series"]["stream_names"]
     sig_streams = _fp_yaml["FiberPhotometry"]["signal_series"]["stream_names"]
 
     doric_path = data_dir_path / f"Session_{session_id}.doric"
     sess_data_path = str(data_dir_path / f"sess_data_{session_id}.pkl")
     fp_data_path = str(data_dir_path / f"fp_data_{session_id}.pkl")
-    ain_to_region = _SESSION_AIN_TO_REGION[session_id]
     video_path = data_dir_path / f"mov_{session_id}.mp4"
     source_data = dict(
         Behavior=dict(file_path=sess_data_path, fp_data_path=fp_data_path),
@@ -147,19 +163,14 @@ def session_to_nwb(
 
     session_start_time = metadata["NWBFile"]["session_start_time"]
     if session_start_time.tzinfo is None:
-        metadata["NWBFile"]["session_start_time"] = session_start_time.replace(tzinfo=_TZ)
-
-    with open(data_dir_path / f"sess_data_{session_id}.pkl", "rb") as f:
-        sess_df = pickle.load(f)
-    subject_id = str(int(sess_df["subjid"].iloc[0]))
+        metadata["NWBFile"]["session_start_time"] = session_start_time.replace(tzinfo=timezone)
 
     metadata["NWBFile"]["session_id"] = str(session_id)
 
-    task_type = _SESSION_TASK_TYPE[session_id]
-    task_metadata = load_dict_from_file(_metadata_dir / f"{task_type}.yaml")
+    task_metadata = load_dict_from_file(_METADATA_DIR / f"{task_type}.yaml")
     metadata = dict_deep_update(metadata, task_metadata)
     # camera_id is the ID in the camera's name in video.yaml ("camera_device 0").
-    metadata["Tasks"][0]["name"] = sess_df["protocol"].iloc[0]
+    metadata["Tasks"][0]["name"] = protocol
     metadata["Tasks"][0]["camera_id"] = [0]
 
     metadata = dict_deep_update(metadata, _fp_yaml, append_list=False)
@@ -167,8 +178,8 @@ def session_to_nwb(
     # Ontology terms (HERD); run_conversion writes them under /general/external_resources.
     metadata = dict_deep_update(metadata, _external_resources_yaml)
 
-    metadata["Subject"]["subject_id"] = subject_id
-    metadata["Subject"].update(_SUBJECT_METADATA[int(subject_id)])
+    metadata["Subject"]["subject_id"] = str(subject_id)
+    metadata["Subject"].update(subject_metadata)
 
     with open(data_dir_path / f"fp_data_{session_id}.pkl", "rb") as f:
         fp_data = pickle.load(f)
