@@ -1,0 +1,54 @@
+# Session registry: everything the conversion needs to know about a session that is not stored in
+# the source files. To convert a new session, add one entry under `sessions`, and one under
+# `subjects` if the rat is new. No Python file needs to change.
+#
+# A session that is not listed here is not converted: convert_session.py raises an error naming this
+# file, and convert_all_sessions.py lists it as skipped.
+
+# Time zone of the rig. Applied to the session start time and to the dates of birth below.
+timezone: America/Los_Angeles
+
+# One entry per task. The key is the name of the task's metadata file (metadata/<task>.yaml), which
+# holds the session description and the task description. `protocol` is the Bpod protocol name
+# stored in the `protocol` column of sess_data_{session_id}.pkl; the conversion stops if a session's
+# protocol does not match the task it is registered under.
+tasks:
+  wm_task:
+    protocol: ToneCatDelayResp
+  bandit_task:
+    protocol: ClassicRLTasks
+
+# One entry per rat, keyed by the subject ID stored in the `subjid` column of
+# sess_data_{session_id}.pkl. date_of_birth is YYYY-MM-DD.
+subjects:
+  400:
+    sex: M
+    strain: Long Evans
+    date_of_birth: "2024-03-19"
+    weight: 530 g
+  238:
+    sex: M
+    strain: Long Evans
+    # Confirmed by the lab 2026-09-23; the earlier "2025-05-0" in Subj Info.txt was truncated.
+    date_of_birth: "2025-05-20"
+    weight: 540 g
+
+# One entry per session, keyed by the session ID in the source file names.
+#   task           one of the keys under `tasks` above.
+#   ain_to_region  which brain region each Doric analog input (AIN) channel recorded. Take it from
+#                  this session's entry in Subj Info.txt: the mapping changes between sessions, even
+#                  for the same rat. Region abbreviations are spelled out in ATLAS_REGION_NAME in
+#                  utils/build_metadata.py.
+sessions:
+  119247:  # subject 400
+    task: wm_task
+    ain_to_region: { 1: DLS, 2: PL, 3: DMS, 4: NAc }
+  119974:  # subject 400
+    task: bandit_task
+    ain_to_region: { 1: NAc, 2: PL, 3: DLS, 4: DMS }
+  124770:  # subject 238
+    task: wm_task
+    ain_to_region: { 1: DMS, 2: DLS, 3: TS, 4: NAc }
+  124949:  # subject 238
+    task: bandit_task
+    ain_to_region: { 1: NAc, 2: DMS, 3: TS, 4: DLS }
