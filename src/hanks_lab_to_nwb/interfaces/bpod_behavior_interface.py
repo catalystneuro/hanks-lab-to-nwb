@@ -12,14 +12,16 @@ All timestamps are Doric fiber-photometry clock seconds, converted from Bpod
 trial-relative seconds via ``trial_start_ts`` in ``fp_data_{sessid}.pkl``.
 
 Configuration that cannot be inferred from the data (excluded columns, event/action
-classification, dtype overrides, descriptions) lives in bpod_behavior_columns.yaml
-in the same directory.
+classification, dtype overrides, descriptions) is read from a YAML file passed to the
+interface as ``configuration_file_path``. It is specific to the experiment's tasks, so it is
+kept with the experiment's metadata (embargo2026/metadata/bpod_behavior_columns.yaml), which
+also documents the format.
 
 **Abs-time naming convention**: any column whose name contains ``"time"`` and does
 not start with ``"rel_"`` is treated as a Bpod trial-relative timestamp and converted
 via ``+ trial_start_ts[i]`` to Doric-clock seconds. Columns starting with ``"rel_"``
 hold within-trial latencies and are stored as-is. Override per-column with
-``abs_time: true/false`` in the YAML.
+``abs_time: true/false`` in the configuration file.
 """
 
 import pickle
@@ -57,7 +59,7 @@ def _is_abs_time_col(col: str) -> bool:
       is relative to stimulus onset) — already in the right units, no shift needed.
     - All other *time* columns are Bpod trial-relative and require + trial_start_ts[i].
 
-    Override per-column with abs_time: true/false in bpod_behavior_columns.yaml.
+    Override per-column with abs_time: true/false in the configuration file.
     """
     return "time" in col and not col.startswith("rel_")
 
@@ -269,13 +271,13 @@ class BpodBehaviorInterface(BaseDataInterface):
     and the occurrence row's ``value`` carries the edge, so the raw Bpod names
     ``Port1In`` / ``Port1Out`` share one event type and ``BNC1High`` / ``BNC1Low`` share
     one action type. The raw Bpod name is recoverable as ``name + value``. The split is
-    configured per raw name in bpod_behavior_columns.yaml.
+    configured per raw name in the configuration file.
 
     All timestamps are Doric fiber-photometry clock seconds, converted from Bpod
     trial-relative seconds via ``trial_start_ts`` in ``fp_data_{sessid}.pkl``.
     """
 
-    def __init__(self, file_path: str | Path, fp_data_path: str | Path):
+    def __init__(self, file_path: str | Path, fp_data_path: str | Path, configuration_file_path: str | Path):
         """
         Parameters
         ----------
@@ -284,15 +286,22 @@ class BpodBehaviorInterface(BaseDataInterface):
         fp_data_path :
             Path to ``fp_data_{sessid}.pkl``. ``trial_start_ts`` converts Bpod
             trial-relative times to Doric-clock absolute seconds.
+        configuration_file_path :
+            Path to the YAML file with the ``events``, ``actions``, ``states_to_skip``,
+            ``excluded_columns`` and ``columns`` blocks for the experiment's tasks.
         """
-        default_configuration = self.get_default_configuration()
-        self._event_map = _normalize_type_value_map(default_configuration["events"], "event_name")
-        self._action_map = _normalize_type_value_map(default_configuration["actions"], "action_name")
-        self._states_to_skip = frozenset(default_configuration["states_to_skip"])
-        self._excluded_columns = frozenset(default_configuration["excluded_columns"])
-        self._column_overrides = default_configuration.get("columns", {})
+        configuration = load_dict_from_file(Path(configuration_file_path))
+        self._event_map = _normalize_type_value_map(configuration["events"], "event_name")
+        self._action_map = _normalize_type_value_map(configuration["actions"], "action_name")
+        self._states_to_skip = frozenset(configuration["states_to_skip"])
+        self._excluded_columns = frozenset(configuration["excluded_columns"])
+        self._column_overrides = configuration.get("columns", {})
 
-        super().__init__(file_path=str(file_path), fp_data_path=str(fp_data_path))
+        super().__init__(
+            file_path=str(file_path),
+            fp_data_path=str(fp_data_path),
+            configuration_file_path=str(configuration_file_path),
+        )
 
     def get_metadata(self) -> DeepDict:
         metadata = super().get_metadata()
@@ -339,49 +348,6 @@ class BpodBehaviorInterface(BaseDataInterface):
         metadata_schema["properties"]["Behavior"] = dict(type="object", properties=properties)
         return metadata_schema
 
-    # ── load configuration (events, actions, excluded columns etc.)  ─────────────
-
-    @staticmethod
-    def get_default_configuration() -> dict:
-        """Return the default configuration dict from bpod_behavior_columns.yaml."""
-        default_configuration_path = Path(__file__).parent / "bpod_behavior_columns.yaml"
-        default_configuration = load_dict_from_file(default_configuration_path)
-        return default_configuration
-
-    def register_configuration(self, config: dict) -> None:
-        """Register a configuration dict to override the default YAML config.
-
-        The config dict must have the same structure as bpod_behavior_columns.yaml.
-        Under events/actions each raw Bpod name maps either to a mapping giving the
-        type name and the value, or to a plain value string (type name = the raw name):
-        events:
-            Port1In: {"event_name": "Port1", "value": "In"}
-            Port1Out: {"event_name": "Port1", "value": "Out"}
-        actions:
-            BNC1High: {"action_name": "BNC1", "value": "On"}
-            Tup: "Expired"
-        excluded_columns:
-            - "column_to_exclude_1"
-            - "column_to_exclude_2"
-        columns:
-            column_name_1:
-                description: "Description of column_name_1"
-
-        Parameters
-        ----------
-        config : dict
-            Configuration dictionary with the same structure as bpod_behavior_columns.yaml.
-            Overrides the default configuration loaded from the YAML file.
-        """
-        if not isinstance(config, dict):
-            raise ValueError("Configuration must be a dictionary.")
-        if "events" in config:
-            self._event_map = _normalize_type_value_map(config["events"], "event_name")
-        if "actions" in config:
-            self._action_map = _normalize_type_value_map(config["actions"], "action_name")
-        self._excluded_columns = frozenset(config.get("excluded_columns", list(self._excluded_columns)))
-        self._column_overrides = config.get("columns", self._column_overrides)
-
     # ── data loading ──────────────────────────────────────────────────────────
 
     def _load(self):
@@ -423,9 +389,8 @@ class BpodBehaviorInterface(BaseDataInterface):
         if unmapped:
             warn(
                 f"Unmapped Bpod event names found in {self.source_data['file_path']}: "
-                f"{', '.join(sorted(unmapped))}.  Add to bpod_behavior_columns.yaml "
-                "under 'events' or 'actions' to classify them. "
-                "Or call register_configuration() with a dict containing the new mappings."
+                f"{', '.join(sorted(unmapped))}. Add them under 'events' or 'actions' in "
+                f"{self.source_data['configuration_file_path']} to classify them."
             )
         return unmapped
 
