@@ -41,7 +41,8 @@ Where the configuration lives:
 |---|---|
 | Sessions (task, AIN to region), subjects, time zone, Bpod protocol of each task | `metadata/sessions.yaml` |
 | FP hardware: devices, wavelengths, filters, indicator, table rows, series names and descriptions | `metadata/fiber_photometry.yaml` |
-| Session description, experiment description, lab, institution, experimenter, keywords | `metadata/wm_task.yaml`, `metadata/bandit_task.yaml` |
+| Experiment description, lab, institution, experimenter, keywords, publications, subject species and description | `metadata/general.yaml` |
+| Session description and task description, per task | `metadata/wm_task.yaml`, `metadata/bandit_task.yaml` |
 | Camera | `metadata/video.yaml` |
 | Ontology terms for the institution, experimenter, species and brain regions | `metadata/external_resources.yaml` |
 | Bpod events, actions, skipped states, excluded columns, column descriptions | `interfaces/bpod_behavior_columns.yaml` |
@@ -176,7 +177,8 @@ Also edit the text that names the wavelengths or the sensor:
 - the descriptions of the raw and processed series in `fiber_photometry.yaml`
 - `_SERIES_REGION_DESCRIPTION_TEMPLATES` in `utils/build_metadata.py` ("~415/420 nm", "490 nm",
   "dLight3.8")
-- `session_description`, `experiment_description` and `Subject.description` in both task YAMLs
+- `session_description` in both task YAMLs, and `experiment_description` and `Subject.description`
+  in `metadata/general.yaml`
 
 The lab's `processed_signals` are keyed by role (`raw_lig`, `raw_iso`, and so on), not by
 wavelength, so the processed series need no change.
@@ -229,7 +231,7 @@ for "Unmapped Bpod event names".
 
 A new protocol needs three steps:
 
-1. Create `metadata/<task>.yaml` with its session description, task description and keywords.
+1. Create `metadata/<task>.yaml` with its session description and task description.
 2. Add `<task>` with its Bpod `protocol` under `tasks:` in `metadata/sessions.yaml`.
 3. Register the sessions under it.
 
@@ -274,7 +276,7 @@ a single mp4 and sets `camera_id` to `[0]`.
 
 | Change | Edit |
 |---|---|
-| New experimenter, lab, institution, keywords or publication | Both `metadata/wm_task.yaml` and `metadata/bandit_task.yaml`; the block is repeated in each. For a new experimenter or institution also add the ORCID or ROR in `metadata/external_resources.yaml` |
+| New experimenter, lab, institution, keywords or publication | `metadata/general.yaml`. For a new experimenter or institution also add the ORCID or ROR in `metadata/external_resources.yaml` |
 | The rig moves to another time zone | `timezone` in `metadata/sessions.yaml` |
 | The source files are named differently | The file names built in `session_to_nwb` (`convert_session.py`) and the `sess_data_*.pkl` pattern in `get_session_ids` (`convert_all_sessions.py`) |
 
