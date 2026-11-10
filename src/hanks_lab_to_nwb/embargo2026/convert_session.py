@@ -104,7 +104,11 @@ def session_to_nwb(
     fp_data_path = str(data_dir_path / f"fp_data_{session_id}.pkl")
     video_path = data_dir_path / f"mov_{session_id}.mp4"
     source_data = dict(
-        Behavior=dict(file_path=sess_data_path, fp_data_path=fp_data_path),
+        Behavior=dict(
+            file_path=sess_data_path,
+            fp_data_path=fp_data_path,
+            configuration_file_path=str(_METADATA_DIR / "bpod_behavior_columns.yaml"),
+        ),
     )
     conversion_options = dict()
     # The raw lock-in acquisition is only available for sessions whose .doric was

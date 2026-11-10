@@ -449,7 +449,7 @@ the data, not a truncation bug in the interface (all trials round-trip element-f
 
 In the raw DataFrame only `tone_info` is genuinely a list; the five time/offset columns are
 plain scalars and are promoted to 1-element lists by the explicit `dtype: list_*` overrides in
-`src/hanks_lab_to_nwb/interfaces/bpod_behavior_columns.yaml`.
+`src/hanks_lab_to_nwb/embargo2026/metadata/bpod_behavior_columns.yaml`.
 
 **Decision.** Keep the ragged columns. Making the indexing data-driven (ragged only when
 `max(n_tones) > 1`) would give the same column two different types across sessions in one

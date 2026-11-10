@@ -45,7 +45,7 @@ Where the configuration lives:
 | Session description and task description, per task | `metadata/wm_task.yaml`, `metadata/bandit_task.yaml` |
 | Camera | `metadata/video.yaml` |
 | Ontology terms for the institution, experimenter, species and brain regions | `metadata/external_resources.yaml` |
-| Bpod events, actions, skipped states, excluded columns, column descriptions | `interfaces/bpod_behavior_columns.yaml` |
+| Bpod events, actions, skipped states, excluded columns, column descriptions | `metadata/bpod_behavior_columns.yaml` |
 | Source file names | `convert_session.py` and `convert_all_sessions.py` |
 
 ## Changes that convert without an error
@@ -209,7 +209,7 @@ descriptions and update the text.
 ## Changes to the Bpod task
 
 Most task changes are picked up from the data. The table lists what happens for each and what to
-edit in `interfaces/bpod_behavior_columns.yaml`.
+edit in `metadata/bpod_behavior_columns.yaml`.
 
 | Change | What happens | Edit |
 |---|---|---|

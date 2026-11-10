@@ -1,4 +1,5 @@
-# BPod behavior column configuration for BpodBehaviorInterface.
+# BPod behavior column configuration for BpodBehaviorInterface, covering the WM and bandit tasks.
+# convert_session.py passes this file to the interface as configuration_file_path.
 #
 # The interface auto-discovers all DataFrame columns and infers their NWB
 # dtype from the pandas dtype and first non-null value. This file only carries
