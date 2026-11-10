@@ -16,8 +16,7 @@ from hanks_lab_to_nwb.interfaces import (
 #   (interface name in the converter,
 #    key in fp_data["fp_data"]["processed_signals"][region] of fp_data_{session_id}.pkl,
 #    key of the series' entry under FiberPhotometry in metadata/fiber_photometry.yaml)
-# A new signal also needs that entry in fiber_photometry.yaml, and a line in
-# _SERIES_REGION_DESCRIPTION_TEMPLATES in utils/build_metadata.py.
+# A new signal also needs that entry in fiber_photometry.yaml.
 PROCESSED_SIGNALS = [
     ("ProcessedFP_RawIso", "raw_iso", "raw_iso_series"),
     ("ProcessedFP_RawLig", "raw_lig", "raw_lig_series"),

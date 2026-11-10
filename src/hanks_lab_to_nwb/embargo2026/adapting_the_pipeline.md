@@ -39,14 +39,13 @@ Where the configuration lives:
 
 | What | Where |
 |---|---|
-| Sessions (task, AIN to region), subjects, time zone, Bpod protocol of each task | `metadata/sessions.yaml` |
+| Sessions (task, AIN to region), subjects, region names, time zone, Bpod protocol of each task | `metadata/sessions.yaml` |
 | FP hardware: devices, wavelengths, filters, indicator, table rows, series names and descriptions | `metadata/fiber_photometry.yaml` |
 | Experiment description, lab, institution, experimenter, keywords, publications, subject species and description | `metadata/general.yaml` |
 | Session description and task description, per task | `metadata/wm_task.yaml`, `metadata/bandit_task.yaml` |
 | Camera | `metadata/video.yaml` |
 | Ontology terms for the institution, experimenter, species and brain regions | `metadata/external_resources.yaml` |
 | Bpod events, actions, skipped states, excluded columns, column descriptions | `interfaces/bpod_behavior_columns.yaml` |
-| Region abbreviation to full name, and the sentence describing each series' regions | `utils/build_metadata.py` |
 | Source file names | `convert_session.py` and `convert_all_sessions.py` |
 
 ## Changes that convert without an error
@@ -56,7 +55,7 @@ the file is wrong or incomplete. The linked section says what to check and edit.
 
 | Change | What gets written |
 |---|---|
-| A region whose abbreviation is not in `ATLAS_REGION_NAME` | The bare abbreviation as the `location`, and no ontology term. See [A new brain region](#a-new-brain-region). |
+| A region whose abbreviation is not under `regions` in `sessions.yaml` | The bare abbreviation as the `location`, and no ontology term. See [A new brain region](#a-new-brain-region). |
 | A region with no entry in `fp_data["implant_info"]` | An optical fiber without insertion coordinates. See [A new session](#a-new-session-same-rig-and-task). |
 | Different wavelengths, filters, LEDs or indicator | The old values from `fiber_photometry.yaml`. See [Different wavelengths, filters or indicator](#different-wavelengths-filters-or-indicator). |
 | A processed signal in the pickle that is not one of the 12 listed | Nothing; the signal is left out. See [Changes to the FP preprocessing](#changes-to-the-fp-preprocessing). |
@@ -128,8 +127,7 @@ Handled automatically: any region abbreviation that `fp_data` uses as a key.
 
 You edit:
 
-- `ATLAS_REGION_NAME` in `utils/build_metadata.py`, adding e.g.
-  `"VTA": "Ventral tegmental area"`.
+- `regions` in `metadata/sessions.yaml`, adding e.g. `VTA: Ventral tegmental area`.
 - `anatomical_structures` in `metadata/external_resources.yaml`, adding the ontology term under
   the same full name.
 
@@ -174,9 +172,8 @@ You edit `metadata/fiber_photometry.yaml`:
 
 Also edit the text that names the wavelengths or the sensor:
 
-- the descriptions of the raw and processed series in `fiber_photometry.yaml`
-- `_SERIES_REGION_DESCRIPTION_TEMPLATES` in `utils/build_metadata.py` ("~415/420 nm", "490 nm",
-  "dLight3.8")
+- the `description` and `fiber_photometry_table_region_description` of the raw and processed
+  series in `fiber_photometry.yaml` ("~415/420 nm", "490 nm", "dLight3.8")
 - `session_description` in both task YAMLs, and `experiment_description` and `Subject.description`
   in `metadata/general.yaml`
 
@@ -192,11 +189,12 @@ Handled automatically:
   `invalid_times` table
 - per-fiber `comments`, written to the FP table's `notes` column
 
-New or renamed processed signals (e.g. a z-score). Add or change the signal in three places:
+New or renamed processed signals (e.g. a z-score). Add or change the signal in two places:
 
 1. `PROCESSED_SIGNALS` in `nwbconverter.py`, the one list of signals in the code
-2. a series entry in `metadata/fiber_photometry.yaml`, with its name and description
-3. a line in `_SERIES_REGION_DESCRIPTION_TEMPLATES` in `utils/build_metadata.py`
+2. a series entry in `metadata/fiber_photometry.yaml`, with its name, description and
+   `fiber_photometry_table_region_description`. Write `{regions}` in the latter where the
+   session's region names should appear.
 
 A signal in the pickle that is not listed is left out of the file without a message. To find one,
 compare the keys of `fp_data["fp_data"]["processed_signals"][region]` with `PROCESSED_SIGNALS`. A

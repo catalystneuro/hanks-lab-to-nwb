@@ -79,8 +79,6 @@ from neuroconv.basedatainterface import BaseDataInterface
 from pynwb import NWBFile
 from pynwb.epoch import TimeIntervals
 
-from hanks_lab_to_nwb.utils.build_metadata import ATLAS_REGION_NAME
-
 TABLE_NAME = "invalid_times"
 
 TABLE_DESCRIPTION = (
@@ -129,6 +127,7 @@ class FiberPhotometryArtifactInterface(BaseDataInterface):
         self,
         file_path: str | Path,
         ain_to_region: dict[int, str],
+        region_names: dict[str, str],
         signal_key_to_metadata_key: dict[str, str],
     ):
         """
@@ -139,6 +138,9 @@ class FiberPhotometryArtifactInterface(BaseDataInterface):
         ain_to_region :
             Mapping of AIN channel numbers to region abbreviations, e.g.
             ``{1: "NAc", 2: "PL", 3: "DLS", 4: "DMS"}``.
+        region_names :
+            Mapping of region abbreviation to the full name written as each row's ``location``,
+            e.g. ``{"NAc": "Nucleus accumbens"}``. A region missing from it keeps its abbreviation.
         signal_key_to_metadata_key :
             Mapping of ``processed_signals`` key to the ``metadata["FiberPhotometry"]`` key
             holding that series' name, e.g. ``{"dff_iso": "dff_series"}``. Series names are
@@ -146,6 +148,7 @@ class FiberPhotometryArtifactInterface(BaseDataInterface):
             fiber_photometry.yaml.
         """
         self.ain_to_region = ain_to_region
+        self.region_names = region_names
         self.signal_key_to_metadata_key = signal_key_to_metadata_key
         super().__init__(file_path=str(file_path))
 
@@ -269,7 +272,7 @@ class FiberPhotometryArtifactInterface(BaseDataInterface):
                 )
                 continue
             start_time, stop_time = snapped
-            location = ATLAS_REGION_NAME.get(region, region)
+            location = self.region_names.get(region, region)
             table.add_interval(
                 start_time=start_time,
                 stop_time=stop_time,

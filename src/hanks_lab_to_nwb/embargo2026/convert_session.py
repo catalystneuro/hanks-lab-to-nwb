@@ -22,7 +22,7 @@ def load_session_registry() -> dict:
     """Return the session registry stored in metadata/sessions.yaml.
 
     Keys: ``timezone``, ``tasks`` (task name -> Bpod protocol), ``subjects`` (subject ID -> sex,
-    strain, date of birth, weight) and ``sessions`` (session ID -> task and AIN channel -> region).
+    strain, date of birth, weight), ``regions`` (region abbreviation -> full name) and ``sessions`` (session ID -> task and AIN channel -> region).
     """
     return load_dict_from_file(SESSIONS_FILE_PATH)
 
@@ -66,6 +66,7 @@ def session_to_nwb(
         raise ValueError(f"Session {session_id} is not registered. Add it under 'sessions' in {SESSIONS_FILE_PATH}.")
     session_info = registry["sessions"][session_id]
     ain_to_region = session_info["ain_to_region"]
+    region_names = registry["regions"]
     task_type = session_info["task"]
     timezone = ZoneInfo(registry["timezone"])
 
@@ -140,6 +141,7 @@ def session_to_nwb(
     source_data["FiberPhotometryArtifacts"] = dict(
         file_path=fp_data_path,
         ain_to_region=ain_to_region,
+        region_names=region_names,
         signal_key_to_metadata_key={signal_key: meta_key for _, signal_key, meta_key in PROCESSED_SIGNALS},
     )
 
@@ -171,7 +173,7 @@ def session_to_nwb(
 
     with open(data_dir_path / f"fp_data_{session_id}.pkl", "rb") as f:
         fp_data = pickle.load(f)
-    patch_fp_metadata_for_session(metadata, ain_to_region, fp_data)
+    patch_fp_metadata_for_session(metadata, ain_to_region, fp_data, region_names)
 
     nwbfile_path = output_dir_path / f"sub-{subject_id}_ses-{session_id}.nwb"
 
