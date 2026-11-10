@@ -33,12 +33,23 @@ subjects:
     date_of_birth: "2025-05-20"
     weight: 540 g
 
+# Full name of each brain region, keyed by the abbreviation used in `ain_to_region` below and as
+# the region keys of fp_data_{session_id}.pkl. The full name is written as the `location` of the
+# fiber photometry table and of the artifact intervals. Ontology terms are attached by full name,
+# so a region added here also needs an entry under `anatomical_structures` in
+# external_resources.yaml. A region missing from this list is written with its abbreviation.
+regions:
+  NAc: Nucleus accumbens
+  DLS: Dorsolateral striatum
+  DMS: Dorsomedial striatum
+  PL: Prelimbic area
+  TS: Tail of striatum
+
 # One entry per session, keyed by the session ID in the source file names.
 #   task           one of the keys under `tasks` above.
 #   ain_to_region  which brain region each Doric analog input (AIN) channel recorded. Take it from
 #                  this session's entry in Subj Info.txt: the mapping changes between sessions, even
-#                  for the same rat. Region abbreviations are spelled out in ATLAS_REGION_NAME in
-#                  utils/build_metadata.py.
+#                  for the same rat. Use the abbreviations listed under `regions` above.
 sessions:
   119247:  # subject 400
     task: wm_task

@@ -13,7 +13,7 @@ ExternalResources:
     Rattus norvegicus: { id: "NCBITaxon:10116", uri: "http://purl.obolibrary.org/obo/NCBITaxon_10116" }
   # strain is not annotated: Long-Evans RRIDs are per supplier, and the supplier is not known yet
   # (see open_questions.md).
-  # Keys must match the values of ATLAS_REGION_NAME in utils/build_metadata.py, which become the
+  # Keys must match the values of `regions` in sessions.yaml, which become the
   # FiberPhotometryTable locations. UBERON has no dorsolateral, dorsomedial or tail-of-striatum
   # terms, so all three share the dorsal striatum term.
   anatomical_structures:
