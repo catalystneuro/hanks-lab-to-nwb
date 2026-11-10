@@ -1,0 +1,38 @@
+# Metadata shared by every session of the experiment, whatever the task. The text that differs
+# between tasks (session_description and the task description) is in wm_task.yaml and
+# bandit_task.yaml. Ontology identifiers for the institution, the experimenters and the species
+# are in external_resources.yaml and are keyed by the values written here, so a value changed here
+# must be changed there too.
+NWBFile:
+  experiment_description: >
+    This experiment contains simultaneous fiber photometry and behavioral data from
+    rats performing decision-making and working memory tasks, collected in the Hanks
+    lab to study the neural basis of these behaviors. Rats are implanted with optical
+    fibers targeting up to four striatal and prefrontal regions (nucleus accumbens,
+    dorsomedial striatum, dorsolateral striatum, tail of striatum, and prelimbic
+    cortex) and injected with an AAV expressing the dopamine indicator dLight 3.8.
+    Two behavioral protocols are used: an auditory working memory delay response task
+    and a two-arm bandit task in which rats track reward probabilities that switch
+    across blocks. Behavioral events are controlled and recorded by Bpod. Fluorescence
+    signals are acquired with a Doric system using lock-in detection at isosbestic and
+    ligand excitation wavelengths. Video recordings are collected in each session, with
+    ongoing work on automated pose estimation.
+  keywords:
+    - dopamine
+    - decision making
+    - working memory
+    - fiber photometry
+    - striatum
+    - prefrontal cortex
+    - rat
+  institution: University of California, Davis
+  lab: Hanks
+  experimenter:
+    - Stevenson, Tanner
+  related_publications: []  # TODO: add DOI once published, format "doi:10.xxxx/xxxxx"
+
+Subject:
+  species: Rattus norvegicus
+  description: >
+    Rat implanted with optical fibers targeting striatal and prefrontal regions,
+    injected with AAV9-CAG-dLight3.8 (UNC Vector Core) for dopamine imaging.
