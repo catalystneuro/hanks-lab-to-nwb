@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from neuroconv.utils import dict_deep_update, load_dict_from_file
 
 from hanks_lab_to_nwb.embargo2026 import HanksLabNWBConverter
+from hanks_lab_to_nwb.embargo2026.nwbconverter import PROCESSED_SIGNALS
 from hanks_lab_to_nwb.utils import patch_fp_metadata_for_session
 
 _METADATA_DIR = Path(__file__).parent / "metadata"
@@ -15,22 +16,6 @@ _METADATA_DIR = Path(__file__).parent / "metadata"
 # Per-session and per-subject values (task, AIN channel -> brain region, subject details, time zone)
 # live in this file. Edit it to add a session; see the comments inside.
 SESSIONS_FILE_PATH = _METADATA_DIR / "sessions.yaml"
-
-# Processed signal registry: (converter_key, pkl_signal_key, metadata_key)
-_PROCESSED_SIGNALS = [
-    ("ProcessedFP_RawIso", "raw_iso", "raw_iso_series"),
-    ("ProcessedFP_RawLig", "raw_lig", "raw_lig_series"),
-    ("ProcessedFP_FilteredIso", "filtered_iso", "filtered_iso_series"),
-    ("ProcessedFP_FilteredLig", "filtered_lig", "filtered_lig_series"),
-    ("ProcessedFP_FittedIso", "fitted_iso", "fitted_iso_series"),
-    ("ProcessedFP_BaselineIso", "baseline_iso", "baseline_iso_series"),
-    ("ProcessedFP_BaselineLig", "baseline_lig", "baseline_lig_series"),
-    ("ProcessedFP_BaselineCorrIso", "baseline_corr_iso", "baseline_corr_iso_series"),
-    ("ProcessedFP_BaselineCorrLig", "baseline_corr_lig", "baseline_corr_lig_series"),
-    ("ProcessedFP_FittedBaselineFbandIso", "fitted_baseline_fband_iso", "fitted_baseline_fband_iso_series"),
-    ("ProcessedFP_DFF", "dff_iso", "dff_series"),
-    ("ProcessedFP_DFFBaselineFband", "dff_iso_baseline_fband", "dff_baseline_fband_series"),
-]
 
 
 def load_session_registry() -> dict:
@@ -141,7 +126,7 @@ def session_to_nwb(
             video_name="BehaviorVideo",
         )
         source_data["Epoch"] = dict(file_path=video_path.with_suffix(".doric"))
-    for interface_name, signal_key, meta_key in _PROCESSED_SIGNALS:
+    for interface_name, signal_key, meta_key in PROCESSED_SIGNALS:
         source_data[interface_name] = dict(
             file_path=fp_data_path,
             ain_to_region=ain_to_region,
@@ -155,7 +140,7 @@ def session_to_nwb(
     source_data["FiberPhotometryArtifacts"] = dict(
         file_path=fp_data_path,
         ain_to_region=ain_to_region,
-        signal_key_to_metadata_key={signal_key: meta_key for _, signal_key, meta_key in _PROCESSED_SIGNALS},
+        signal_key_to_metadata_key={signal_key: meta_key for _, signal_key, meta_key in PROCESSED_SIGNALS},
     )
 
     converter = HanksLabNWBConverter(source_data=source_data)
