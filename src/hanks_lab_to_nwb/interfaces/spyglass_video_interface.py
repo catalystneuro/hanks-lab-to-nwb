@@ -1,6 +1,7 @@
 """Behavior video interface whose camera is a Spyglass-compatible ndx-franklab-novela CameraDevice."""
 
 from copy import deepcopy
+from pathlib import Path
 
 import h5py
 import numpy as np
@@ -47,7 +48,9 @@ class SpyglassVideoInterface(ExternalVideoInterface):
         """
         super().__init__(file_paths=[file_path], verbose=verbose, metadata_key=metadata_key, video_name=video_name)
         self.source_data["timestamps_file_path"] = str(timestamps_file_path)
-        self.set_aligned_timestamps(self.get_original_timestamps())
+        # One time-bearing object per video file, keyed by the file stem.
+        (frame_times,) = self.get_original_timestamps()
+        self.temporal_alignment[Path(file_path).stem].set_times(frame_times)
 
     def get_original_timestamps(self, stub_test: bool = False) -> list[np.ndarray]:
         with h5py.File(self.source_data["timestamps_file_path"], "r") as f:
