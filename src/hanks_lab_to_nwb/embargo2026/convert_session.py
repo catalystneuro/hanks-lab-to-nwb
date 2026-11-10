@@ -167,6 +167,9 @@ def session_to_nwb(
 
     metadata["NWBFile"]["session_id"] = str(session_id)
 
+    # general.yaml holds what every session shares; the task file adds the task-specific text.
+    general_metadata = load_dict_from_file(_METADATA_DIR / "general.yaml")
+    metadata = dict_deep_update(metadata, general_metadata)
     task_metadata = load_dict_from_file(_METADATA_DIR / f"{task_type}.yaml")
     metadata = dict_deep_update(metadata, task_metadata)
     # camera_id is the ID in the camera's name in video.yaml ("camera_device 0").
