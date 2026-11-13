@@ -4,76 +4,36 @@ NWB conversion scripts for Hanks lab data to the
 
 
 ## Installation
-## Basic installation
 
-You can install the latest release of the package with pip:
-
-```
-pip install hanks-lab-to-nwb
-```
-
-We recommend that you install the package inside a [virtual environment](https://docs.python.org/3/tutorial/venv.html). A simple way of doing this is to use a [conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/concepts/environments.html) from the `conda` package manager ([installation 
-instructions](https://docs.conda.io/en/latest/miniconda.html)). Detailed instructions on how to use conda 
-environments can be found in their [documentation](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html).
-
-### Running a specific conversion
-Once you have installed the package with pip, you can run any of the conversion scripts in a notebook or a python file:
-
-https://github.com/catalystneuro/hanks-lab-to-nwb//tree/main/src/hanks_task/convert_session.py
-
-Copy or download this file run the script with the following command:
-
-```
-python convert_session.py
-```
-
-## Installation from GitHub
-Another option is to install the package directly from Github. This option has the advantage that the source code can be modified if you need to amend some of the code we originally provided to adapt to future experimental differences. To install the conversion from GitHub you will need to use `git` ([installation instructions](https://github.com/git-guides/install-git)). We also recommend the installation of `conda` ([installation instructions](https://docs.conda.io/en/latest/miniconda.html)) as it contains all the required machinery in a single and simple install.
-
-From a terminal (note that conda should install one in your system) you can do the following:
+The conversion is installed from this repository with [uv](https://docs.astral.sh/uv/)
+([installation instructions](https://docs.astral.sh/uv/getting-started/installation/)). You also
+need `git` ([installation instructions](https://github.com/git-guides/install-git)).
 
 ```bash
 git clone https://github.com/catalystneuro/hanks-lab-to-nwb
 cd hanks-lab-to-nwb
-conda env create --file make_env.yml
-conda activate hanks-lab-to-nwb_env
+uv sync
 ```
 
-This creates a [conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/concepts/environments.html) which isolates the conversion code from your system libraries.  We recommend that you run all your conversion related tasks and analysis from the created environment in order to minimize issues related to package dependencies.
+`uv sync` creates a virtual environment in `.venv` and installs the exact package versions recorded
+in `uv.lock`, which are the versions the conversion was tested with. The package itself is
+installed in editable mode, so changes you make to the source code take effect without
+reinstalling.
 
-If you fork this repository and are running code from that fork, instead use
+Installing with plain `pip install .` is not supported. `ndx-franklab-novela` 0.2.4 declares
+`hdmf<5` while `pynwb` 4 needs `hdmf>=6.2`, and only uv applies the override in `pyproject.toml`
+that reconciles them.
+
+To update the dependencies later, edit `pyproject.toml`, run `uv lock`, and commit the new
+`uv.lock`.
+
+### Running a conversion
+
+Run the scripts through uv so they use the project environment:
+
 ```bash
-git clone https://github.com/your_github_username/hanks-lab-to-nwb
-```
-
-Then you can run
-```bash
-cd hanks-lab-to-nwb
-conda env create --file make_env.yml
-conda activate hanks-lab-to-nwb_env
-```
-
-Alternatively, if you want to avoid conda altogether (for example if you use another virtual environment tool) you can install the repository with the following commands using only pip:
-
-```bash
-git clone https://github.com/catalystneuro/hanks-lab-to-nwb
-cd hanks-lab-to-nwb
-pip install --editable .
-```
-
-Note:
-both of the methods above install the repository in [editable mode](https://pip.pypa.io/en/stable/cli/pip_install/#editable-installs).
-The dependencies for this environment are stored in the dependencies section of the `pyproject.toml` file.
-
-### Running a specific conversion
-If the project has more than one conversion, you can install the requirements for a specific conversion with the following command:
-```
-pip install --editable .[hanks_task]
-```
-
-You can run a specific conversion with the following command:
-```
-python src/hanks_lab_to_nwb/hanks_task/convert_session.py
+uv run python src/hanks_lab_to_nwb/embargo2026/convert_session.py
+uv run python src/hanks_lab_to_nwb/embargo2026/convert_all_sessions.py <data_dir_path> <output_dir_path>
 ```
 
 ## Helpful Definitions
@@ -97,7 +57,6 @@ Each conversion is organized in a directory of its own in the `src` directory:
 
     hanks-lab-to-nwb/
     ├── LICENSE
-    ├── make_env.yml
     ├── pyproject.toml
     ├── README.md
     └── src
@@ -113,11 +72,11 @@ Each conversion is organized in a directory of its own in the `src` directory:
 
         └── __init__.py
 
-For example, for the conversion `hanks_task` you can find a directory located in `src/hanks-lab-to-nwb/hanks_task`. 
+For example, for the conversion `hanks_task` you can find a directory located in `src/hanks-lab-to-nwb/hanks_task`.
 Inside each conversion directory you can find the following files:
 
 
-* `convert_sesion.py`: this script defines the function to convert one full session of the conversion. 
+* `convert_sesion.py`: this script defines the function to convert one full session of the conversion.
 * `metadata.yml`: metadata in yaml format for this specific conversion.
 * `behaviorinterface.py`: the behavior interface. Usually ad-hoc for each conversion.
 * `nwbconverter.py`: the place where the `NWBConverter` class is defined.
