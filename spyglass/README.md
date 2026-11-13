@@ -64,7 +64,7 @@ Shared catalog rows are reused across sessions: the photometry devices (`Indicat
    pip install pynwb==4.1.0 hdmf==6.2.0
    ```
 
-   The converted files embed NWB `core` 2.10.0, which needs pynwb 4 and hdmf 6. Spyglass
+   The converted files embed NWB `core` 2.11.0, which needs pynwb 4 and hdmf 6. Spyglass
    depends on `ndx-franklab-novela`, which requires `hdmf<5`, so pip cannot resolve both in
    one step and reports the conflict after the upgrade. Ingestion is not affected because
    Spyglass only imports `ndx-franklab-novela` for type checking. The second step can go

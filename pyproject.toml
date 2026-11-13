@@ -14,13 +14,16 @@ classifiers = [
 ]
 
 dependencies = [
-  "neuroconv @ git+https://github.com/catalystneuro/neuroconv.git@main",
-  "pynwb>=4.0.0",  # in-file external resources (HERD)
+  # Pinned to a commit of main until neuroconv 0.11.0 is released; the conversion needs the
+  # unreleased ExternalResources (HERD) writer and ExternalVideoInterface.temporal_alignment.
+  "neuroconv @ git+https://github.com/catalystneuro/neuroconv.git@691181d36173806dc13ea31aeba04464bd91bd58",
+  "pynwb>=4.2.0",  # minimum required by neuroconv; in-file external resources (HERD) need >=4.0.0
   "nwbinspector",
   "ndx-fiber-photometry==0.2.4",
   "ndx-ophys-devices==0.3.1",
   "ndx-structured-behavior==0.2.0",
-  "ndx-franklab-novela",  # CameraDevice, required by Spyglass's VideoFile table
+  "ndx-franklab-novela==0.2.4",  # CameraDevice, required by Spyglass's VideoFile table
+  "ndx-hed==0.3.0",  # HED annotations of the Bpod states, events and actions
   "opencv-python-headless",
   "matplotlib",
   "networkx",  # tutorial state-transition graph
@@ -100,9 +103,6 @@ relative-imports-order = "closest-to-furthest"
 known-first-party = ["hanks_lab_to_nwb"]
 
 [tool.uv]
-# ndx-franklab-novela 0.2.4 pins hdmf<5, but pynwb 4 needs hdmf>=6.1. CameraDevice reads and
-# writes correctly under hdmf 6, so the pin is overridden.
-override-dependencies = ["hdmf>=6.1"]
-
-[tool.uv.sources]
-ndx-structured-behavior = { path = "../ndx-structured-behavior", editable = true }
+# ndx-franklab-novela 0.2.4 pins hdmf<5, but pynwb 4.2 and ndx-hed need hdmf>=6.2. CameraDevice
+# reads and writes correctly under hdmf 6, so the pin is overridden.
+override-dependencies = ["hdmf>=6.2"]

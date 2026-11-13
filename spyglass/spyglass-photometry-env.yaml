@@ -12,7 +12,7 @@
 #
 #   pip install pynwb==4.1.0 hdmf==6.2.0
 #
-# The converted Hanks NWB files embed NWB `core` 2.10.0, which only pynwb>=4 can read.
+# The converted Hanks NWB files embed NWB `core` 2.11.0, which only pynwb>=4 can read.
 # hdmf>=6 conflicts with ndx-franklab-novela's `hdmf<5` (a Spyglass dependency), so pip
 # cannot install both in one step. pip reports the conflict after the upgrade, but Spyglass
 # only imports ndx-franklab-novela under TYPE_CHECKING, so ingestion is not affected.
