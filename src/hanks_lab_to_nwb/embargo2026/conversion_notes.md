@@ -427,6 +427,23 @@ name collision with pynwb ≥ 4.0 by re-using the core namespace type.
 
 ---
 
+### HED annotations of the Bpod types  *(added 2026-11-13)*
+
+Each Bpod state, event type and action type has a HED string in `metadata/hed.yaml`, written to
+a `HED` column (`HedTags`, ndx-hed 0.3.0) on `state_types`, `event_types` and `action_types` in
+`nwbfile.lab_meta_data["task"]`. The schema version (8.5.0) and the three port definitions
+(`Left-port`, `Center-port`, `Right-port`) are in `nwbfile.lab_meta_data["hed_schema"]`
+(`HedLabMetaData`).
+
+- The types are tagged, not the occurrences. Every row of `states`, `events` and `actions`
+  points to its type through `state_type`, `event_type` or `action_type`, so the tag is stored
+  once per type.
+- `trials` has no `HED` column.
+- The conversion validates the three type tables with `HedNWBValidator` and raises on any
+  issue. A type without an entry in `hed.yaml` is written with an empty string and a warning.
+- The tags are a draft written from the state names and their timing in the four shared
+  sessions. The entries marked "confirm" in `hed.yaml` are waiting for the lab.
+
 ## Open Questions
 
 
