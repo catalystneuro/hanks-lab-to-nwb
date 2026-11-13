@@ -46,6 +46,7 @@ Where the configuration lives:
 | Camera | `metadata/video.yaml` |
 | Ontology terms for the institution, experimenter, species and brain regions | `metadata/external_resources.yaml` |
 | Bpod events, actions, skipped states, excluded columns, column descriptions | `metadata/bpod_behavior_columns.yaml` |
+| HED annotations of the Bpod states, events and actions | `metadata/hed.yaml` |
 | Source file names | `convert_session.py` and `convert_all_sessions.py` |
 
 ## Changes that convert without an error
@@ -61,6 +62,7 @@ the file is wrong or incomplete. The linked section says what to check and edit.
 | A processed signal in the pickle that is not one of the 12 listed | Nothing; the signal is left out. See [Changes to the FP preprocessing](#changes-to-the-fp-preprocessing). |
 | Changed preprocessing parameters | The old numbers in the series descriptions. See [Changes to the FP preprocessing](#changes-to-the-fp-preprocessing). |
 | A Bpod event name that is not in `bpod_behavior_columns.yaml` | An event type with `value="Unknown"`, and a warning. See [Changes to the Bpod task](#changes-to-the-bpod-task). |
+| A Bpod state, event or action that is not in `hed.yaml` | An empty HED string for that type, and a warning. See [Changes to the Bpod task](#changes-to-the-bpod-task). |
 | A new per-trial column | A `trials` column described as `"no description"`. See [Changes to the Bpod task](#changes-to-the-bpod-task). |
 | A new per-trial column with `time` in its name | Values with the trial start time added, which is wrong for a duration. See [Changes to the Bpod task](#changes-to-the-bpod-task). |
 | A missing value in a per-trial column | `False`, `0` or `"none"`, which cannot be told apart from a real value. See [Changes to the Bpod task](#changes-to-the-bpod-task). |
@@ -218,13 +220,22 @@ edit in `metadata/bpod_behavior_columns.yaml`.
 | Column that is empty for the whole session | Left out | none |
 | Column that is a scalar in some sessions and a list in others | Type inferred per session, so sessions disagree | Set `dtype:` (e.g. `list_float`) |
 | Missing value in a column | Written as `False` for a bool, `0` for an int, `"none"` for a string; a float is written as NaN | For an int or string column set `none_value:` to a value that cannot occur. A bool has no such option |
-| New Bpod state | Added to `StateTypesTable` | none |
-| New port (e.g. `Port4In`) or other animal event | Stored as its own event type with `value="Unknown"`, with a warning | Add under `events:`, e.g. `Port4In: {event_name: Port4, value: "In"}` |
-| New machine output (e.g. `BNC2High`, `GlobalTimer4_End`) | Stored as an event with `value="Unknown"`, not as an action | Add under `actions:` |
+| New Bpod state | Added to `StateTypesTable` with an empty HED string, with a warning | Add its HED string under `states:` in `metadata/hed.yaml` |
+| Renamed Bpod state | Treated as a new state; the entry under the old name is ignored | Rename the entry under `states:` in `metadata/hed.yaml` |
+| New port (e.g. `Port4In`) or other animal event | Stored as its own event type with `value="Unknown"`, with a warning | Add under `events:`, e.g. `Port4In: {event_name: Port4, value: "In"}`, and add the HED string of `Port4` under `events:` in `metadata/hed.yaml` |
+| New machine output (e.g. `BNC2High`, `GlobalTimer4_End`) | Stored as an event with `value="Unknown"`, not as an action | Add under `actions:`, and add its HED string under `actions:` in `metadata/hed.yaml` |
 | Different sync word (e.g. 16 bits) | The extra `GenerateTrialBit16` state is written as a behavioral state | Add it to `states_to_skip` |
 
-The warning for unknown event names is easy to miss in a batch run. Search the conversion output
-for "Unmapped Bpod event names".
+The warnings are easy to miss in a batch run. Search the conversion output for "Unmapped Bpod
+event names" and "No HED annotation".
+
+Each state, event type and action type has a [HED](https://www.hedtags.org) annotation in
+`metadata/hed.yaml`, a string of tags from a fixed vocabulary that says what the state or event
+is (a cue, a reward, a response at the left port). It is written to the `HED` column of the type
+tables in `nwbfile.lab_meta_data["task"]`. The conversion checks every string against the HED
+schema and stops with an error that names the entry and the invalid tag. It cannot check that a
+valid string describes the state correctly, so read the entry again when the meaning of a state
+changes in the Bpod protocol but its name stays the same.
 
 A new protocol needs three steps:
 
@@ -294,6 +305,8 @@ folder and reuses the shared code.
      sessions. Remove the entries of the old experiment.
    - one `<task>.yaml` per task, replacing `wm_task.yaml` and `bandit_task.yaml`
    - `bpod_behavior_columns.yaml`: the events, actions and per-trial columns of the new tasks
+   - `hed.yaml`: the HED strings of the new tasks' states, events and actions. The conversion
+     runs with empty `states`, `events` and `actions` blocks and warns about each missing entry.
    - `fiber_photometry.yaml` and `video.yaml`, if the hardware differs
    - `external_resources.yaml`, if the institution, experimenter, species or regions differ
 4. Replace `conversion_notes.md` and `open_questions.md` in the copy with notes on the new
