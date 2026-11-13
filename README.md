@@ -9,7 +9,8 @@ Each session becomes one NWB file containing:
 - the raw fiber photometry acquisition from the Doric console
 - the 12 processed fiber photometry signals from the lab's preprocessing, and the time windows
   in which each region's signal is not usable
-- the Bpod behavior: states, events, actions and the trials table, on the Doric clock
+- the Bpod behavior: states, events, actions and the trials table, on the Doric clock, with
+  [HED](https://www.hedtags.org) annotations of the state, event and action types
 - a link to the behavior video, with one timestamp per frame
 - hardware, subject and session metadata, with ontology identifiers for the institution,
   experimenter, species and brain regions
@@ -140,7 +141,8 @@ conversion cannot detect.
         │   │   ├── fiber_photometry.yaml       fiber photometry hardware and series
         │   │   ├── video.yaml                  camera
         │   │   ├── external_resources.yaml     ontology identifiers
-        │   │   └── bpod_behavior_columns.yaml  Bpod events, actions and trial columns
+        │   │   ├── bpod_behavior_columns.yaml  Bpod events, actions and trial columns
+        │   │   └── hed.yaml                    HED annotations of the Bpod states, events and actions
         │   ├── adapting_the_pipeline.md    what to edit when the experiment changes
         │   ├── conversion_notes.md         description of the source data and design decisions
         │   └── open_questions.md           questions for the lab, most of them resolved
@@ -159,6 +161,6 @@ several interfaces into one file. The interfaces in `interfaces/` are:
 | `DoricFiberPhotometryInterface` (from NeuroConv) | `Session_{session_id}.doric` | Raw fiber photometry series, devices and the fiber photometry table |
 | `HanksLabProcessedFiberPhotometryInterface` | `fp_data_{session_id}.pkl` | One processed fiber photometry series |
 | `FiberPhotometryArtifactInterface` | `fp_data_{session_id}.pkl` | The `invalid_times` table |
-| `BpodBehaviorInterface` | `sess_data_{session_id}.pkl`, `fp_data_{session_id}.pkl` | Bpod task tables and `trials` |
+| `BpodBehaviorInterface` | `sess_data_{session_id}.pkl`, `fp_data_{session_id}.pkl` | Bpod task tables with HED annotations, and `trials` |
 | `SpyglassVideoInterface` | `mov_{session_id}.mp4`, `mov_{session_id}.doric` | Behavior video link and camera |
 | `SpyglassEpochInterface` | `mov_{session_id}.doric` | Session epoch and task table |
