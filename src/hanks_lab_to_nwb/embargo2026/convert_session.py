@@ -108,6 +108,7 @@ def session_to_nwb(
             file_path=sess_data_path,
             fp_data_path=fp_data_path,
             configuration_file_path=str(_METADATA_DIR / "bpod_behavior_columns.yaml"),
+            hed_file_path=str(_METADATA_DIR / "hed.yaml"),
         ),
     )
     conversion_options = dict()
