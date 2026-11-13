@@ -6,6 +6,8 @@ Uses ndx-structured-behavior to organize behavioral data into typed tables:
   - ActionTypesTable / ActionsTable — one row per machine-triggered output, FK to action types
   - TrialsTable — one row per trial, DynamicTableRegion links to states/events/actions rows
   - Task (LabMetaData) — groups the type tables under nwbfile.lab_meta_data["task"]
+  - HedLabMetaData (ndx-hed) — HED schema version and definitions under nwbfile.lab_meta_data["hed_schema"];
+    each type table has a ``HED`` column with the HED annotation of each type
   - TaskRecording (NWBDataInterface) — groups the data tables under nwbfile.acquisition["task_recording"]
 
 All timestamps are Doric fiber-photometry clock seconds, converted from Bpod
@@ -15,7 +17,8 @@ Configuration that cannot be inferred from the data (excluded columns, event/act
 classification, dtype overrides, descriptions) is read from a YAML file passed to the
 interface as ``configuration_file_path``. It is specific to the experiment's tasks, so it is
 kept with the experiment's metadata (embargo2026/metadata/bpod_behavior_columns.yaml), which
-also documents the format.
+also documents the format. The HED annotations are read from a second YAML file passed as
+``hed_file_path`` (embargo2026/metadata/hed.yaml).
 
 **Abs-time naming convention**: any column whose name contains ``"time"`` and does
 not start with ``"rel_"`` is treated as a Bpod trial-relative timestamp and converted
@@ -29,6 +32,8 @@ from pathlib import Path
 from warnings import warn
 
 import numpy as np
+from ndx_hed import HedLabMetaData, HedTags
+from ndx_hed.utils.hed_nwb_validator import HedNWBValidator
 from ndx_structured_behavior import (
     ActionsTable,
     ActionTypesTable,
@@ -278,7 +283,13 @@ class BpodBehaviorInterface(BaseDataInterface):
     trial-relative seconds via ``trial_start_ts`` in ``fp_data_{sessid}.pkl``.
     """
 
-    def __init__(self, file_path: str | Path, fp_data_path: str | Path, configuration_file_path: str | Path):
+    def __init__(
+        self,
+        file_path: str | Path,
+        fp_data_path: str | Path,
+        configuration_file_path: str | Path,
+        hed_file_path: str | Path,
+    ):
         """
         Parameters
         ----------
@@ -290,6 +301,11 @@ class BpodBehaviorInterface(BaseDataInterface):
         configuration_file_path :
             Path to the YAML file with the ``events``, ``actions``, ``states_to_skip``,
             ``excluded_columns`` and ``columns`` blocks for the experiment's tasks.
+        hed_file_path :
+            Path to the YAML file with the HED ``schema_version``, the ``definitions`` and the
+            HED string of each state, event type and action type (``states``, ``events``,
+            ``actions``). A type without an entry is written with an empty HED string and
+            reported in a warning.
         """
         configuration = load_dict_from_file(Path(configuration_file_path))
         self._event_map = _normalize_type_value_map(configuration["events"], "event_name")
@@ -298,10 +314,16 @@ class BpodBehaviorInterface(BaseDataInterface):
         self._excluded_columns = frozenset(configuration["excluded_columns"])
         self._column_overrides = configuration.get("columns", {})
 
+        hed = load_dict_from_file(Path(hed_file_path))
+        self._hed_schema_version = str(hed["schema_version"])
+        self._hed_definitions = ", ".join(hed.get("definitions") or [])
+        self._hed_tags = {key: hed.get(key) or {} for key in ("states", "events", "actions")}
+
         super().__init__(
             file_path=str(file_path),
             fp_data_path=str(fp_data_path),
             configuration_file_path=str(configuration_file_path),
+            hed_file_path=str(hed_file_path),
         )
 
     def get_metadata(self) -> DeepDict:
@@ -420,41 +442,68 @@ class BpodBehaviorInterface(BaseDataInterface):
         ``BNC1`` action type — so the type names are deduplicated here, in YAML order.
         The returned index maps are keyed by *type* name, not by raw Bpod name.
 
+        Each table gets a ``HED`` column holding the HED string of each type from the HED
+        file. A type without an entry gets an empty string; all such names are listed in one
+        warning.
+
         Returns
         -------
         (state_types, state_name_to_idx,
          event_types, event_name_to_idx,
          action_types, action_name_to_idx)
         """
+        untagged: list[str] = []
+
+        def add_hed_column(table, kind: str) -> None:
+            # ndx-hed requires the column to be named "HED" and to exist before the first row.
+            table.add_column(name="HED", col_cls=HedTags, data=[], description=f"HED annotation of each {kind} type.")
+
+        def hed_string(kind: str, name: str) -> str:
+            tags = self._hed_tags[f"{kind}s"].get(name)
+            if not tags:
+                untagged.append(f"{name} ({kind})")
+                return ""
+            return str(tags)
+
         # State types — discover unique non-skipped state names from data
         state_types = StateTypesTable(description=beh_meta["StateTypesTable"]["description"])
+        add_hed_column(state_types, "state")
         state_name_to_idx: dict[str, int] = {}
         for _, row in df.iterrows():
             for name in row["parsed_events"]["States"]:
                 if name not in self._states_to_skip and name not in state_name_to_idx:
                     state_name_to_idx[name] = len(state_name_to_idx)
-                    state_types.add_row(state_name=name, check_ragged=False)
+                    state_types.add_row(state_name=name, HED=hed_string("state", name), check_ragged=False)
 
         # Event types — YAML-defined + unmapped (for cross-session consistency)
         event_types = EventTypesTable(description=beh_meta["EventTypesTable"]["description"])
+        add_hed_column(event_types, "event")
         event_name_to_idx: dict[str, int] = {}
         for type_name, _ in self._event_map.values():
             if type_name not in event_name_to_idx:
                 event_name_to_idx[type_name] = len(event_name_to_idx)
-                event_types.add_row(event_name=type_name, check_ragged=False)
+                event_types.add_row(event_name=type_name, HED=hed_string("event", type_name), check_ragged=False)
         # Add any unmapped names to the event types table so they can be stored even if not classified yet
         for name in sorted(unmapped_names):  # sorted for determinism
             if name not in event_name_to_idx:
                 event_name_to_idx[name] = len(event_name_to_idx)
-                event_types.add_row(event_name=name, check_ragged=False)
+                event_types.add_row(event_name=name, HED=hed_string("event", name), check_ragged=False)
 
         # Action types — YAML-defined
         action_types = ActionTypesTable(description=beh_meta["ActionTypesTable"]["description"])
+        add_hed_column(action_types, "action")
         action_name_to_idx: dict[str, int] = {}
         for type_name, _ in self._action_map.values():
             if type_name not in action_name_to_idx:
                 action_name_to_idx[type_name] = len(action_name_to_idx)
-                action_types.add_row(action_name=type_name, check_ragged=False)
+                action_types.add_row(action_name=type_name, HED=hed_string("action", type_name), check_ragged=False)
+
+        if untagged:
+            warn(
+                f"No HED annotation for {', '.join(untagged)} in {self.source_data['file_path']}. "
+                f"They are written with an empty HED string. Add them under 'states', 'events' or "
+                f"'actions' in {self.source_data['hed_file_path']}."
+            )
 
         return (state_types, state_name_to_idx, event_types, event_name_to_idx, action_types, action_name_to_idx)
 
@@ -591,6 +640,23 @@ class BpodBehaviorInterface(BaseDataInterface):
             action_types,
             action_name_to_idx,
         ) = self._build_type_tables(beh_meta, df, unmapped_names)
+
+        # HED schema version and definitions, then check every HED string against them
+        hed_metadata = HedLabMetaData(
+            hed_schema_version=self._hed_schema_version, definitions=self._hed_definitions or None
+        )
+        nwbfile.add_lab_meta_data(hed_metadata)
+        validator = HedNWBValidator(hed_metadata)
+        issues = []
+        for table, name_column in (
+            (state_types, "state_name"),
+            (event_types, "event_name"),
+            (action_types, "action_name"),
+        ):
+            for issue in validator.validate_table(table):
+                issues.append(f"{table[name_column][issue['ec_row']]}: {issue['message']}")
+        if issues:
+            raise ValueError(f"Invalid HED annotations in {self.source_data['hed_file_path']}:\n" + "\n".join(issues))
 
         # Build and populate data tables, tracking per-trial row indices
         (
