@@ -76,7 +76,7 @@ Shared catalog rows are reused across sessions: the photometry devices (`Indicat
    pip install pynwb==4.1.0 hdmf==6.2.0
    ```
 
-   The converted files embed NWB `core` 2.10.0, which needs pynwb 4 and hdmf 6. Spyglass
+   The converted files embed NWB `core` 2.11.0, which needs pynwb 4 and hdmf 6. Spyglass
    depends on `ndx-franklab-novela`, which requires `hdmf<5`, so pip cannot resolve both in
    one step and reports the conflict after the upgrade. Ingestion is not affected because
    Spyglass only imports `ndx-franklab-novela` for type checking. The second step can go
@@ -218,7 +218,7 @@ Outstanding issues:
   A database created with the earlier pin (#1637 alone) was not tested with it.
 - Files converted before 2026-10-19 keep the artifact windows in a custom table,
   `intervals["fiber_photometry_artifacts_intervals"]`, which Spyglass does not read; re-convert
-  them. The copies on DANDI (Dandiset 001973) are still the old files until they are re-uploaded.
+  them.
 
 ## Why not `sgi.insert_sessions()`?
 

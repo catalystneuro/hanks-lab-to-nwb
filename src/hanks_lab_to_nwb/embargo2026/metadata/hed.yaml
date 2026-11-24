@@ -1,0 +1,88 @@
+# HED (Hierarchical Event Descriptors, https://www.hedtags.org) annotations of the Bpod states,
+# events and actions, covering the WM and bandit tasks. convert_session.py passes this file to
+# BpodBehaviorInterface as hed_file_path.
+#
+# Each state, event and action type is tagged once. The tag is written to the `HED` column of
+# the type table (state_types, event_types, action_types in nwbfile.lab_meta_data["task"]), and
+# every recorded state, event and action points to its type, so it carries the tag of its type.
+#
+# A HED string is a comma-separated list of tags from the HED schema, with parentheses grouping
+# tags that belong together. Browse the tags at https://www.hedtags.org/hed-schema-browser.
+# The conversion validates every string against the schema version below and stops with an
+# error that names the invalid tag.
+#
+# A state, event or action that has no entry here is written with an empty HED string, and the
+# conversion prints a warning that lists the names. Add an entry to remove the warning.
+#
+# DRAFT: the tags below were written from the state names and their timing in the four
+# sessions shared with CatalystNeuro. Entries marked "confirm" are a guess at what the state
+# does and need to be checked by someone who knows the Bpod protocol.
+
+# Version of the HED standard schema the strings are validated against.
+schema_version: "8.5.0"
+
+# Terms defined for this experiment, used below as Def/<name>. Port1 is the left port, Port2
+# the center port and Port3 the right port.
+definitions:
+  - (Definition/Left-port, (Item, Left-side-of))
+  - (Definition/Center-port, (Item, Center-of))
+  - (Definition/Right-port, (Item, Right-side-of))
+
+# Keyed by the Bpod state name in parsed_events["States"]. States listed under states_to_skip
+# in bpod_behavior_columns.yaml are not written and need no entry.
+states:
+  # Both tasks
+  SyncBit: Experiment-control, Data-marker, Time-sync
+  ITI: Experiment-structure, Experimental-intertrial
+  WaitForCenterPoke: Sensory-event, Cue, Visual-presentation, (Waiting-for, (Agent-action, Def/Center-port))
+  CueResponse: Sensory-event, Cue, (Waiting-for, (Agent-action, Participant-response))
+  SyncFail: Experiment-control
+  NoCenterPoke: Experiment-control, Omitted-action
+  NoResponse: Experiment-control, Omitted-action
+
+  # WM task (ToneCatDelayResp)
+  StartStim: Experiment-control
+  WaitForSync: Experiment-control
+  StartStimulusTimer: Experiment-control
+  Stimulus: Sensory-event, Experimental-stimulus, Auditory-presentation, Tone
+  StartStimLCBTimer: Experiment-control
+  StimLCB: Experiment-structure, Pause
+  StartPreSyncLCBTimer: Experiment-control
+  PreSyncLCB: Experiment-structure, Pause
+  StartStimulusTimer_LCB: Experiment-control
+  CueResponse_LCB: Sensory-event, Cue, (Waiting-for, (Agent-action, Participant-response))
+  Hit: Agent-action, Participant-response, Correct-action
+  Error: Agent-action, Participant-response, Incorrect-action
+  Bail: Agent-action, Participant-response, Inappropriate-action
+  DeliverReward: Sensory-event, Feedback, Reward
+  PlayUnrewardTone: Sensory-event, Feedback, Auditory-presentation, Tone
+  CorrectITI: Experiment-control, Experimental-intertrial
+  ErrorITI: Experiment-control, Experimental-intertrial
+
+  # Bandit task (ClassicRLTasks)
+  StartCenterPoke: Experiment-control
+  CenterPokeHold: Agent-action, (Participant-response, Def/Center-port)
+  LCB: Experiment-structure, Pause                     # confirm: center poke break during the hold
+  CPokeBreakDelay: Experiment-structure, Time-out      # confirm
+  StartTrial: Experiment-control
+  RewardDelay_Left: Experiment-control, (Waiting-for, (Reward, Def/Left-port))
+  RewardDelay_Right: Experiment-control, (Waiting-for, (Reward, Def/Right-port))
+  DeliverReward_Left: Sensory-event, Feedback, (Reward, Def/Left-port)
+  DeliverReward_Right: Sensory-event, Feedback, (Reward, Def/Right-port)
+  CueEpochSwitch: Sensory-event, Cue                   # confirm: does not occur in the shared sessions
+
+# Keyed by the event type name (the event_name in bpod_behavior_columns.yaml). The In or Out
+# edge is the `value` of each recorded event and is not part of the tag.
+events:
+  Port1: Agent-action, Participant-response, (Move-body-part, Def/Left-port)
+  Port2: Agent-action, Participant-response, (Move-body-part, Def/Center-port)
+  Port3: Agent-action, Participant-response, (Move-body-part, Def/Right-port)
+
+# Keyed by the action type name (the action_name in bpod_behavior_columns.yaml).
+actions:
+  BNC1: Experiment-control, Data-marker
+  Condition1: Experiment-control
+  GlobalTimer1: Experiment-control, Temporal-marker
+  GlobalTimer2: Experiment-control, Temporal-marker
+  GlobalTimer3: Experiment-control, Temporal-marker
+  Tup: Experiment-control, Temporal-marker

@@ -36,8 +36,9 @@ def session_to_nwb(
     """Convert one Hanks lab session to NWB.
 
     Writes the Bpod behavior, the processed fiber photometry series and their artifact windows,
-    plus the raw fiber photometry acquisition when ``Session_{session_id}.doric`` is present and
-    the behavior video when ``mov_{session_id}.mp4`` is present.
+    the raw fiber photometry acquisition, and the behavior video when ``mov_{session_id}.mp4``
+    is present. ``Session_{session_id}.doric`` is required: the session start time is read
+    from it.
 
     Parameters
     ----------
@@ -108,11 +109,12 @@ def session_to_nwb(
             file_path=sess_data_path,
             fp_data_path=fp_data_path,
             configuration_file_path=str(_METADATA_DIR / "bpod_behavior_columns.yaml"),
+            hed_file_path=str(_METADATA_DIR / "hed.yaml"),
         ),
     )
     conversion_options = dict()
-    # The raw lock-in acquisition is only available for sessions whose .doric was
-    # shared; processed FP (from the pkl) and behavior are converted regardless.
+    # The raw lock-in acquisition is added when the .doric is present. The session start time
+    # also comes from this file, so a session without it does not convert at present.
     if doric_path.exists():
         source_data["DoricFPIsosbestic"] = dict(
             file_path=str(doric_path), stream_names=iso_streams, metadata_key="isosbestic_series"
