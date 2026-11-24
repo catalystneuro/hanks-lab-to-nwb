@@ -218,7 +218,7 @@ Outstanding issues:
   A database created with the earlier pin (#1637 alone) was not tested with it.
 - Files converted before 2026-10-19 keep the artifact windows in a custom table,
   `intervals["fiber_photometry_artifacts_intervals"]`, which Spyglass does not read; re-convert
-  them. The copies on DANDI (Dandiset 001973) are still the old files until they are re-uploaded.
+  them.
 
 ## Why not `sgi.insert_sessions()`?
 
