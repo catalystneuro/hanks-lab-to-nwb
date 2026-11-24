@@ -50,7 +50,7 @@ All sessions are read from one folder. The number in each file name is the sessi
 |---|---|---|
 | `sess_data_{session_id}.pkl` | Bpod trials, one row per trial | yes |
 | `fp_data_{session_id}.pkl` | Processed fiber photometry, trial start times, implant coordinates | yes |
-| `Session_{session_id}.doric` | Raw fiber photometry acquisition | no |
+| `Session_{session_id}.doric` | Raw fiber photometry acquisition, session start time | yes |
 | `mov_{session_id}.mp4` | Behavior video | no |
 | `mov_{session_id}.doric` | Frame times of the video | only with the mp4 |
 

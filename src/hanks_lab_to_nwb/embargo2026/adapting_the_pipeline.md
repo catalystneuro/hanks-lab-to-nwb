@@ -31,7 +31,7 @@ Per session, from one data folder:
 |---|---|---|
 | `sess_data_{session_id}.pkl` | Bpod task tables and `trials` | yes |
 | `fp_data_{session_id}.pkl` | 12 processed FP series, artifact intervals, trial start times on the Doric clock, implant coordinates | yes |
-| `Session_{session_id}.doric` | Raw lock-in series at about 6 kHz | no; without it the raw series are left out |
+| `Session_{session_id}.doric` | Raw lock-in series at about 6 kHz, and the session start time | yes; the session start time is read from this file, so the conversion fails without it |
 | `mov_{session_id}.mp4` | Behavior video | no; without it the video and the session epoch are left out |
 | `mov_{session_id}.doric` | Frame times of the video | only when the mp4 is present |
 
