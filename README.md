@@ -1,7 +1,21 @@
 # hanks-lab-to-nwb
-NWB conversion scripts for Hanks lab data to the
-[Neurodata Without Borders](https://nwb-overview.readthedocs.io/) data format.
 
+Conversion of Hanks lab fiber photometry and behavior data to the
+[Neurodata Without Borders](https://nwb-overview.readthedocs.io/) (NWB) format, built on
+[NeuroConv](https://neuroconv.readthedocs.io/).
+
+Each session becomes one NWB file containing:
+
+- the raw fiber photometry acquisition from the Doric console
+- the 12 processed fiber photometry signals from the lab's preprocessing, and the time windows
+  in which each region's signal is not usable
+- the Bpod behavior: states, events, actions and the trials table, on the Doric clock
+- a link to the behavior video, with one timestamp per frame
+- hardware, subject and session metadata, with ontology identifiers for the institution,
+  experimenter, species and brain regions
+
+The files can also be loaded into a [Spyglass](https://github.com/LorenFrankLab/spyglass)
+database; see [spyglass/README.md](spyglass/README.md).
 
 ## Installation
 
@@ -27,75 +41,124 @@ that reconciles them.
 To update the dependencies later, edit `pyproject.toml`, run `uv lock`, and commit the new
 `uv.lock`.
 
-### Running a conversion
+## Source data
 
-Run the scripts through uv so they use the project environment:
+All sessions are read from one folder. The number in each file name is the session ID.
+
+| File | Content | Required |
+|---|---|---|
+| `sess_data_{session_id}.pkl` | Bpod trials, one row per trial | yes |
+| `fp_data_{session_id}.pkl` | Processed fiber photometry, trial start times, implant coordinates | yes |
+| `Session_{session_id}.doric` | Raw fiber photometry acquisition | no |
+| `mov_{session_id}.mp4` | Behavior video | no |
+| `mov_{session_id}.doric` | Frame times of the video | only with the mp4 |
+
+The two `.pkl` files are pickled Python objects. The environment that runs the conversion must
+have a pandas version that can read the pickles written by the preprocessing environment.
+
+## Converting a session
+
+Every session has to be registered before it can be converted. Open
+`src/hanks_lab_to_nwb/embargo2026/metadata/sessions.yaml` and add the session with its task and
+its AIN to region mapping, and the subject if the rat is new. The comments in that file explain
+each field.
+
+To convert one session, edit the four values in the `__main__` block at the bottom of
+`src/hanks_lab_to_nwb/embargo2026/convert_session.py` (`session_id`, `data_dir_path`,
+`output_dir_path`, `stub_test`) and run it:
 
 ```bash
 uv run python src/hanks_lab_to_nwb/embargo2026/convert_session.py
+```
+
+With `stub_test = True` only the first samples of each series are written, to a `nwb_stub` folder
+inside the output folder. It takes seconds and is the quickest way to check a change.
+
+To convert every registered session found in the data folder:
+
+```bash
 uv run python src/hanks_lab_to_nwb/embargo2026/convert_all_sessions.py <data_dir_path> <output_dir_path>
 ```
 
-## Helpful Definitions
+Add `--stub_test` for a quick check and `--max_workers N` to convert N sessions in parallel. The
+script prints the sessions it converts, and a `NOT CONVERTED` line listing sessions in the folder
+that are not registered. A session that fails writes its error to an `exceptions` folder inside
+the output folder and does not stop the others.
 
-This conversion project is comprised primarily by DataInterfaces, NWBConverters, and conversion scripts.
+The output file is named `sub-{subject_id}_ses-{session_id}.nwb`. It stores the location of the
+mp4 as a path relative to the NWB file. If you move the NWB file, move the video so that the
+relative location stays the same.
 
-In neuroconv, a [DataInterface](https://neuroconv.readthedocs.io/en/main/user_guide/datainterfaces.html) is a class that specifies the procedure to convert a single data modality to NWB.
-This is usually accomplished with a single read operation from a distinct set of files.
-For example, in this conversion, the `HanksTaskBehaviorInterface` contains the code that converts all of the behavioral data to NWB from raw <FILE_TYPE> files.
+## Checking the output
 
-In neuroconv, a [NWBConverter](https://neuroconv.readthedocs.io/en/main/user_guide/nwbconverter.html) is a class that combines many data interfaces and specifies the relationships between them, such as temporal alignment.
-This allows users to combine multiple modalities into a single NWB file in an efficient and modular way.
+Run [NWB Inspector](https://nwbinspector.readthedocs.io/) on the output folder:
 
-In this conversion project, the conversion scripts determine which sessions to convert,
-instantiate the appropriate NWBConverter object,
-and convert all of the specified sessions, saving them to an output directory of .nwb files.
+```bash
+uv run nwbinspector <output_dir_path> --config dandi
+```
 
+Three best-practice suggestions are expected for every file and come from the layout Spyglass
+needs: the processing module named `tasks`, the single-row `epochs` table and the single-row
+`task_table`.
+
+The notebooks in `src/hanks_lab_to_nwb/tutorials` show how to read a converted file:
+
+| Notebook | Shows |
+|---|---|
+| `doric_fp_demo.ipynb` | Raw fiber photometry and the hardware metadata |
+| `processed_fp_demo.ipynb` | Processed fiber photometry signals |
+| `bpod_demo.ipynb` | Bpod states, events, actions and trials |
+| `dandi_001973_demo.ipynb` | Streaming a file from the DANDI Archive |
+
+The first three open a local file; change the path at the top of the notebook to your own. The
+notebooks need `jupyter`, which is not part of the conversion environment.
+
+## When the experiment changes
+
+[adapting_the_pipeline.md](src/hanks_lab_to_nwb/embargo2026/adapting_the_pipeline.md) says what to
+edit for a new session, brain region, fiber count, wavelength, preprocessing step, Bpod task or
+camera, and how to start a new experiment. Read its section "Changes that convert without an
+error" after any change to the rig, the task or the preprocessing: it lists the mistakes the
+conversion cannot detect.
 
 ## Repository structure
-Each conversion is organized in a directory of its own in the `src` directory:
 
     hanks-lab-to-nwb/
-    ├── LICENSE
-    ├── pyproject.toml
-    ├── README.md
-    └── src
-        ├── hanks_lab_to_nwb
-        │   └── hanks_task
-        │       ├── conversion_notes.md
-        │       ├── behaviorinterface.py
-        │       ├── convert_session.py
-        │       ├── metadata.yml
-        │       ├── nwbconverter.py
-        │       └── __init__.py
-        │   ├── conversion_directory_b
+    ├── pyproject.toml                  dependencies
+    ├── uv.lock                         exact versions installed by `uv sync`
+    ├── spyglass/                       loading converted files into Spyglass
+    └── src/hanks_lab_to_nwb/
+        ├── embargo2026/                the WM and bandit task experiment
+        │   ├── convert_session.py          converts one session
+        │   ├── convert_all_sessions.py     converts every registered session in a folder
+        │   ├── nwbconverter.py             the interfaces that make up a session
+        │   ├── metadata/
+        │   │   ├── sessions.yaml               sessions, subjects, regions, time zone
+        │   │   ├── general.yaml                lab, experimenter, experiment description
+        │   │   ├── wm_task.yaml                session and task description, WM task
+        │   │   ├── bandit_task.yaml            session and task description, bandit task
+        │   │   ├── fiber_photometry.yaml       fiber photometry hardware and series
+        │   │   ├── video.yaml                  camera
+        │   │   ├── external_resources.yaml     ontology identifiers
+        │   │   └── bpod_behavior_columns.yaml  Bpod events, actions and trial columns
+        │   ├── adapting_the_pipeline.md    what to edit when the experiment changes
+        │   ├── conversion_notes.md         description of the source data and design decisions
+        │   └── open_questions.md           questions for the lab, most of them resolved
+        ├── interfaces/                 code that reads each data stream
+        ├── utils/                      per-session patching of the fiber photometry metadata
+        └── tutorials/                  notebooks that read converted files
 
-        └── __init__.py
+In NeuroConv, a
+[DataInterface](https://neuroconv.readthedocs.io/en/main/user_guide/datainterfaces.html) converts
+one data stream to NWB, and an
+[NWBConverter](https://neuroconv.readthedocs.io/en/main/user_guide/nwbconverter.html) combines
+several interfaces into one file. The interfaces in `interfaces/` are:
 
-For example, for the conversion `hanks_task` you can find a directory located in `src/hanks-lab-to-nwb/hanks_task`.
-Inside each conversion directory you can find the following files:
-
-
-* `convert_sesion.py`: this script defines the function to convert one full session of the conversion.
-* `metadata.yml`: metadata in yaml format for this specific conversion.
-* `behaviorinterface.py`: the behavior interface. Usually ad-hoc for each conversion.
-* `nwbconverter.py`: the place where the `NWBConverter` class is defined.
-* `conversion_notes.md`: notes and comments concerning this specific conversion.
-
-The directory might contain other files that are necessary for the conversion but those are the central ones.
-
-
-## Data Conversion Pipeline
-
-This project implements a comprehensive pipeline for converting electrophysiology and behavioral data to NWB format:
-
-**Source Data → Data Interfaces → NWB Files**
-
-## Customizing for New Datasets
-To create a new conversion:
-1. **Create a new dataset directory** following the naming convention `{experimenter}_{year}`
-2. **Implement dataset-specific interfaces** inheriting from existing interfaces as appropriate
-3. **Create an NWBConverter class** that combines all interfaces for your dataset
-4. **Write conversion scripts** for single sessions and batch processing
-6. **Create metadata files** with dataset-specific experimental parameters
-Each conversion should be self-contained within its directory and follow the established patterns for consistency and maintainability.
+| Interface | Reads | Writes |
+|---|---|---|
+| `DoricFiberPhotometryInterface` (from NeuroConv) | `Session_{session_id}.doric` | Raw fiber photometry series, devices and the fiber photometry table |
+| `HanksLabProcessedFiberPhotometryInterface` | `fp_data_{session_id}.pkl` | One processed fiber photometry series |
+| `FiberPhotometryArtifactInterface` | `fp_data_{session_id}.pkl` | The `invalid_times` table |
+| `BpodBehaviorInterface` | `sess_data_{session_id}.pkl`, `fp_data_{session_id}.pkl` | Bpod task tables and `trials` |
+| `SpyglassVideoInterface` | `mov_{session_id}.mp4`, `mov_{session_id}.doric` | Behavior video link and camera |
+| `SpyglassEpochInterface` | `mov_{session_id}.doric` | Session epoch and task table |
